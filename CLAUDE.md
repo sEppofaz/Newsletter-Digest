@@ -105,5 +105,5 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 [x] Volle Rubrik-Variabilität: An/Aus, Name, Context, Bullets, Keywords, neue Rubriken
 [x] Uhrzeit-Picker in PWA-Einstellungen
 [x] Dynamische Tabs aus Config
-[ ] Double-Opt-In-Mails bestätigen (11 Newsletter angemeldet)
-[ ] PWA auf Homescreen installieren
+[x] Double-Opt-In-Mails bestätigt (11 Newsletter)
+[x] PWA auf Homescreen installiert
