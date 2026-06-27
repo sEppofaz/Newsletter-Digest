@@ -74,13 +74,16 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 - Gmail App-Passwort erforderlich (kein normales Passwort für IMAP)
 
 ## Aktueller Stand
-[ ] GitHub-Repo angelegt
-[ ] Server: /opt/newsletter-digest/ angelegt
-[ ] systemd-Service aktiv
-[ ] nginx-Location aktiv
-[ ] .env auf Server gesetzt
-[ ] Icon-Berechtigungen gesetzt
-[ ] n8n Workflow erstellt
-[ ] Gmail IMAP aktiviert + App-Passwort generiert
-[ ] Erster Test-Digest manuell erstellt (POST /api/process)
-[ ] PWA auf Homescreen installiert und getestet
+[x] GitHub-Repo angelegt (sEppofaz/Newsletter-Digest)
+[x] Server: /opt/newsletter-digest/ angelegt
+[x] systemd-Service aktiv (newsletter-digest.service, Port 5006)
+[x] systemd-Timer aktiv (newsletter-fetch.timer, täglich 07:00)
+[x] nginx-Location aktiv (/newsletter/)
+[x] .env auf Server gesetzt (ANTHROPIC_API_KEY, CLAUDE_MODEL, BEARER_TOKEN, TELEGRAM_*, GMAIL_*)
+[x] Icon-Berechtigungen gesetzt (chown webhook)
+[x] Gmail IMAP aktiviert + App-Passwort generiert (josef.jf.fischer@gmail.com)
+[x] Erster Test-Digest manuell erstellt und in PWA gerendert
+[x] Auto-Kategorisierung per Claude Haiku (kein manuelles Mapping nötig)
+[ ] Double-Opt-In-Mails bestätigen (11 Newsletter angemeldet)
+[ ] PWA auf Homescreen installieren
+[ ] Rubriken-Konfiguration erweitern: Gewichtung, An/Aus, neue Rubriken, Orte, Podcast-Transkripte
