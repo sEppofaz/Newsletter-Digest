@@ -3,10 +3,8 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, jsonify, request, send_file, abort
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 import requests as http_client
-
-load_dotenv()
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -19,13 +17,14 @@ CONFIG_FILE = BASE / "config.json"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 ICONS_DIR.mkdir(parents=True, exist_ok=True)
 
-BEARER_TOKEN       = os.getenv("BEARER_TOKEN", "")
-ANTHROPIC_API_KEY  = os.getenv("ANTHROPIC_API_KEY", "")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
+_env = dotenv_values(BASE / ".env")
+BEARER_TOKEN       = _env.get("BEARER_TOKEN", "")
+ANTHROPIC_API_KEY  = _env.get("ANTHROPIC_API_KEY", "")
+TELEGRAM_BOT_TOKEN = _env.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = _env.get("TELEGRAM_CHAT_ID", "")
 
 CLAUDE_MODEL_FALLBACK = "claude-haiku-4-5-20251001"
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", CLAUDE_MODEL_FALLBACK)
+CLAUDE_MODEL = _env.get("CLAUDE_MODEL", CLAUDE_MODEL_FALLBACK)
 
 CAT_NAMES = {
     "ki_tech":   "KI & Tech",

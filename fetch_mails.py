@@ -8,10 +8,10 @@ import imaplib, email, os, sys, json, logging
 from email.header import decode_header
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 import requests
 
-load_dotenv(Path(__file__).parent / ".env")
+_env = dotenv_values(Path(__file__).parent / ".env")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,13 +20,18 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-API_BASE        = "http://127.0.0.1:5006"
-BEARER_TOKEN    = os.getenv("BEARER_TOKEN", "")
-GMAIL_USER      = os.getenv("GMAIL_USER", "josef.jf.fischer@gmail.com")
-GMAIL_PASSWORD  = os.getenv("GMAIL_APP_PASSWORD", "")
-IMAP_HOST       = "imap.gmail.com"
-IMAP_PORT       = 993
-LOOKBACK_HOURS  = 25   # etwas über 24h Puffer
+API_BASE              = "http://127.0.0.1:5006"
+BEARER_TOKEN          = _env.get("BEARER_TOKEN", "")
+GMAIL_USER            = _env.get("GMAIL_USER", "josef.jf.fischer@gmail.com")
+GMAIL_PASSWORD        = _env.get("GMAIL_APP_PASSWORD", "")
+ANTHROPIC_API_KEY     = _env.get("ANTHROPIC_API_KEY", "")
+CLAUDE_MODEL_FALLBACK = "claude-haiku-4-5-20251001"
+CLAUDE_MODEL          = _env.get("CLAUDE_MODEL", CLAUDE_MODEL_FALLBACK)
+IMAP_HOST             = "imap.gmail.com"
+IMAP_PORT             = 993
+LOOKBACK_HOURS        = 25
+
+VALID_CATEGORIES = {"ki_tech", "finanzen", "automobil", "lokal"}
 
 
 def should_run() -> bool:
@@ -50,6 +55,59 @@ def get_sender_mapping() -> dict:
     except Exception as e:
         log.warning("Config nicht geladen, leeres Mapping: %s", e)
         return {}
+
+
+def auto_categorize(from_addr: str, subject: str, body: str, model: str | None = None) -> str | None:
+    """Lässt Claude Haiku die Kategorie bestimmen. Gibt None zurück wenn keine Kategorie passt."""
+    if model is None:
+        model = CLAUDE_MODEL
+
+    prompt = (
+        f"Absender: {from_addr}\n"
+        f"Betreff: {subject}\n"
+        f"Inhalt (Auszug): {body[:600]}\n\n"
+        "Kategorisiere diesen Newsletter. Antworte NUR mit einem dieser Begriffe:\n"
+        "ki_tech – KI, Technologie, Software, Wissenschaft\n"
+        "finanzen – Finanzen, Wirtschaft, Aktien, Unternehmen\n"
+        "automobil – Automobil, E-Mobilität, Fahrzeuge, Verkehr\n"
+        "lokal – Lokales aus Bayerbach, Hölskofen, Oberköllnbach oder Paindlkofen (Niederbayern)\n"
+        "keine – passt in keine dieser Kategorien\n\n"
+        "Antwort (nur das eine Wort):"
+    )
+
+    try:
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": model,
+                "max_tokens": 20,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=20,
+        )
+
+        if resp.status_code in (400, 404) and "model_not_found" in resp.text.lower():
+            if model != CLAUDE_MODEL_FALLBACK:
+                log.warning("Modell '%s' ungültig, Fallback auf '%s'", model, CLAUDE_MODEL_FALLBACK)
+                return auto_categorize(from_addr, subject, body, model=CLAUDE_MODEL_FALLBACK)
+            return None
+
+        resp.raise_for_status()
+        cat = resp.json()["content"][0]["text"].strip().lower().split()[0]
+        if cat in VALID_CATEGORIES:
+            log.info("Auto-Kategorie für %s: %s", from_addr, cat)
+            return cat
+        log.info("Keine passende Kategorie für %s (%s) – übersprungen", from_addr, cat)
+        return None
+
+    except Exception as e:
+        log.warning("Auto-Kategorisierung fehlgeschlagen für %s: %s", from_addr, e)
+        return None
 
 
 def decode_str(value: str | bytes | None) -> str:
@@ -127,8 +185,11 @@ def fetch_mails(sender_mapping: dict) -> list:
 
             category = sender_mapping.get(from_addr)
             if not category:
-                log.debug("Absender nicht im Mapping, übersprungen: %s", from_addr)
-                continue
+                log.info("Absender unbekannt, Auto-Kategorisierung: %s", from_addr)
+                body_preview = extract_body(msg)
+                category = auto_categorize(from_addr, subject, body_preview)
+                if not category:
+                    continue
 
             subject = decode_str(msg.get("Subject", "(kein Betreff)"))
             body = extract_body(msg)
