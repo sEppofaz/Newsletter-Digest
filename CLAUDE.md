@@ -17,9 +17,11 @@ git -C ~/Dropbox/Apps/Claude/Newsletter add <datei>
 git -C ~/Dropbox/Apps/Claude/Newsletter commit -m "..."
 git -C ~/Dropbox/Apps/Claude/Newsletter push
 
-# Server ziehen + neustarten
-ssh root@89.167.104.145 "git -C /opt/newsletter-digest pull && systemctl restart newsletter-digest"
+# Server ziehen + Rechte reparieren + neustarten
+ssh root@89.167.104.145 "git -C /opt/newsletter-digest pull && chown webhook:webhook /opt/newsletter-digest/config.json && systemctl restart newsletter-digest"
 ```
+
+⚠️ **Nach jedem git pull:** `config.json` gehört danach root (git pull als root) → gunicorn (User: webhook) kann nicht schreiben → Einstellungen speichern schlägt mit 500 fehl. Immer `chown webhook:webhook /opt/newsletter-digest/config.json` nach dem Pull ausführen.
 
 ## Server-Pfade
 - App: `/opt/newsletter-digest/`
@@ -90,6 +92,7 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 - Gmail App-Passwort erforderlich (kein normales Passwort für IMAP)
 - config.json auf Server kann durch PWA geändert werden – bei git pull Konflikt: `git stash && git pull && git stash drop`
 - `call_claude()` erwartet `cat_cfg`-Dict (nicht category-String + bullet_points-Int)
+- Nach git pull als root: `chown webhook:webhook /opt/newsletter-digest/config.json` – sonst 500 beim Einstellungen speichern (PermissionError)
 
 ## Aktueller Stand
 [x] GitHub-Repo angelegt (sEppofaz/Newsletter-Digest)
