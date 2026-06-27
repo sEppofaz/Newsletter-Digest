@@ -65,6 +65,22 @@ Bei ungültiger Modell-ID: automatischer Fallback + Telegram-Alert.
 Lucide newspaper-ähnlich, Hintergrundfarbe `#1e3a5f` (Dunkelblau)
 Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/`
 
+## Config-Schema (config.json)
+```json
+{
+  "schedule": {"type": "weekly|daily|monthly", "weekday": "sunday", "week": 1, "hour": 7},
+  "max_archive": 10,
+  "categories": [
+    {"id": "ki_tech", "name": "KI & Tech", "enabled": true, "bullet_points": 10,
+     "keywords": ["Claude", "OpenAI"], "context": "KI, Technologie…"}
+  ],
+  "senders": {"dan@tldrnewsletter.com": "ki_tech"}
+}
+```
+- `categories[].keywords` → in Claude-Prompt priorisiert: „Besonders relevant: X, Y"
+- `categories[].enabled: false` → Rubrik komplett überspringen
+- Timer läuft **stündlich**, fetch_mails.py prüft `should_run_today()` → vergleicht `now.hour == schedule.hour`
+
 ## Pitfalls
 - Bearer-Token nie ins Repo – in `/opt/newsletter-digest/.env`
 - Icons-Ordner muss `webhook`-User gehören: `chown webhook:webhook /opt/newsletter-digest/icons`
@@ -72,18 +88,22 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 - In index.html API-Calls mit Prefix: `/newsletter/api/...` (Browser-URL, nicht Flask-intern)
 - `cairosvg.svg2png(bytestring=..., ...)` – NICHT `write_to=str(path)` (CAIRO_STATUS_WRITE_ERROR unter gunicorn)
 - Gmail App-Passwort erforderlich (kein normales Passwort für IMAP)
+- config.json auf Server kann durch PWA geändert werden – bei git pull Konflikt: `git stash && git pull && git stash drop`
+- `call_claude()` erwartet `cat_cfg`-Dict (nicht category-String + bullet_points-Int)
 
 ## Aktueller Stand
 [x] GitHub-Repo angelegt (sEppofaz/Newsletter-Digest)
 [x] Server: /opt/newsletter-digest/ angelegt
 [x] systemd-Service aktiv (newsletter-digest.service, Port 5006)
-[x] systemd-Timer aktiv (newsletter-fetch.timer, täglich 07:00)
+[x] systemd-Timer aktiv (newsletter-fetch.timer, stündlich)
 [x] nginx-Location aktiv (/newsletter/)
 [x] .env auf Server gesetzt (ANTHROPIC_API_KEY, CLAUDE_MODEL, BEARER_TOKEN, TELEGRAM_*, GMAIL_*)
 [x] Icon-Berechtigungen gesetzt (chown webhook)
 [x] Gmail IMAP aktiviert + App-Passwort generiert (josef.jf.fischer@gmail.com)
 [x] Erster Test-Digest manuell erstellt und in PWA gerendert
 [x] Auto-Kategorisierung per Claude Haiku (kein manuelles Mapping nötig)
+[x] Volle Rubrik-Variabilität: An/Aus, Name, Context, Bullets, Keywords, neue Rubriken
+[x] Uhrzeit-Picker in PWA-Einstellungen
+[x] Dynamische Tabs aus Config
 [ ] Double-Opt-In-Mails bestätigen (11 Newsletter angemeldet)
 [ ] PWA auf Homescreen installieren
-[ ] Rubriken-Konfiguration erweitern: Gewichtung, An/Aus, neue Rubriken, Orte, Podcast-Transkripte
