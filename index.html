@@ -24,7 +24,6 @@
   --border:  #c6c6c8;
   --green:   #34c759;
   --red:     #ff3b30;
-  --yellow:  #ff9f0a;
   --chip-bg: #e5e5ea;
   --card-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
@@ -60,8 +59,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 #btn-settings, #btn-info {
   background: rgba(255,255,255,.15); border: none; color: #fff;
   height: 34px; padding: 0 12px; border-radius: 9px;
-  font-size: 13px; font-weight: 600; letter-spacing: .3px; cursor: pointer;
-  transition: background .15s;
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s;
 }
 #btn-settings:active, #btn-info:active { background: rgba(255,255,255,.3); }
 
@@ -75,11 +73,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   transition: top .2s ease; z-index: 200;
 }
 #ptr.show { top: calc(env(safe-area-inset-top) + 60px); }
-.ptr-spin {
-  width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid var(--bg3); border-top-color: var(--accent);
-  animation: spin .7s linear infinite;
-}
+.ptr-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--bg3); border-top-color: var(--accent); animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ─── KATEGORIEN-TABS ─── */
@@ -94,12 +88,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   padding: 12px 10px 11px; cursor: pointer;
   color: var(--muted); font-size: 14px; font-weight: 500;
   border-bottom: 2px solid transparent;
-  display: flex; align-items: center; gap: 5px;
-  transition: color .15s, border-color .15s;
-  white-space: nowrap;
+  transition: color .15s, border-color .15s; white-space: nowrap;
 }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-.tab-btn svg { flex-shrink: 0; }
 
 /* ─── ARCHIV-LEISTE ─── */
 #archive-bar {
@@ -119,158 +110,109 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   padding: 12px calc(16px + env(safe-area-inset-right)) calc(80px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
   max-width: 720px; margin: 0 auto;
 }
-
-/* ─── LOADING / ERROR / EMPTY ─── */
-#loading, #error-box, #empty-box {
-  text-align: center; padding: 48px 24px; color: var(--muted);
-  display: none;
-}
+#loading, #error-box, #empty-box { text-align: center; padding: 48px 24px; color: var(--muted); display: none; }
 #loading.show, #error-box.show, #empty-box.show { display: block; }
-#error-box { color: #ff453a; background: #450a0a; border-radius: 12px; margin: 16px 0; color: #fecaca; }
-.spinner {
-  width: 32px; height: 32px; border-radius: 50%;
-  border: 3px solid var(--bg3); border-top-color: var(--accent);
-  animation: spin .8s linear infinite; margin: 0 auto 12px;
-}
-
-/* ─── DIGEST-KARTE ─── */
-#digest-meta {
-  font-size: 12px; color: var(--muted); margin-bottom: 12px;
-  display: none;
-}
+#error-box { color: #fecaca; background: #450a0a; border-radius: 12px; margin: 16px 0; }
+.spinner { width: 32px; height: 32px; border-radius: 50%; border: 3px solid var(--bg3); border-top-color: var(--accent); animation: spin .8s linear infinite; margin: 0 auto 12px; }
+#digest-meta { font-size: 12px; color: var(--muted); margin-bottom: 12px; display: none; }
 #digest-meta.show { display: block; }
 .digest-section { display: none; }
 .digest-section.active { display: block; }
-
-.digest-item {
-  background: var(--bg2); border-radius: 12px;
-  padding: 14px 16px; margin-bottom: 10px;
-  box-shadow: var(--card-shadow);
-}
-.digest-item-title {
-  font-weight: 700; font-size: 15px; color: var(--text);
-  margin-bottom: 6px; line-height: 1.3;
-}
-.digest-item-body {
-  font-size: 14px; color: var(--text2); line-height: 1.55;
-}
-.digest-relevanz {
-  background: var(--bg3); border-radius: 10px;
-  padding: 10px 14px; margin-top: 6px;
-  font-size: 13px; color: var(--muted); font-style: italic;
-}
-.no-cat {
-  text-align: center; padding: 48px 24px;
-  color: var(--muted); font-size: 14px;
-}
+.digest-item { background: var(--bg2); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; box-shadow: var(--card-shadow); }
+.digest-item-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; line-height: 1.3; }
+.digest-item-body { font-size: 14px; color: var(--text2); line-height: 1.55; }
+.digest-relevanz { background: var(--bg3); border-radius: 10px; padding: 10px 14px; margin-top: 6px; font-size: 13px; color: var(--muted); font-style: italic; }
+.no-cat { text-align: center; padding: 48px 24px; color: var(--muted); font-size: 14px; }
 
 /* ─── SCROLL-TO-TOP ─── */
 .back-top {
-  position: fixed;
-  bottom: calc(24px + env(safe-area-inset-bottom)); right: 16px;
+  position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); right: 16px;
   width: 40px; height: 40px; border-radius: 50%;
-  background: var(--accent); color: #fff; border: none;
-  font-size: 20px; cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0,0,0,.25);
-  display: none; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; border: none; font-size: 20px; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25); display: none; align-items: center; justify-content: center;
   z-index: 200; transition: opacity .2s;
 }
 .back-top.vis { display: flex; }
-.back-top:active { opacity: .7; }
 
-/* ─── OVERLAYS (gemeinsam) ─── */
-.overlay {
-  display: none; position: fixed; inset: 0; z-index: 300;
-  background: rgba(0,0,0,.4);
-}
+/* ─── OVERLAYS ─── */
+.overlay { display: none; position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.4); }
 .overlay.show { display: flex; align-items: flex-end; }
-.sheet {
-  background: var(--bg2); border-radius: 20px 20px 0 0;
-  width: 100%; max-height: 88vh;
-  display: flex; flex-direction: column;
-  box-shadow: 0 -4px 20px rgba(0,0,0,.15);
-}
-.sheet-hd {
-  padding: 14px 16px 10px;
-  display: flex; justify-content: space-between; align-items: center;
-  border-bottom: 1px solid var(--border); flex-shrink: 0;
-}
+.sheet { background: var(--bg2); border-radius: 20px 20px 0 0; width: 100%; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 -4px 20px rgba(0,0,0,.15); }
+.sheet-hd { padding: 14px 16px 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .sheet-hd strong { font-size: 16px; }
-.btn-close {
-  background: var(--chip-bg); border: none; border-radius: 16px;
-  padding: 5px 14px; font-size: 13px; cursor: pointer; color: var(--text);
-}
-.sheet-body {
-  overflow-y: auto; padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
-  -webkit-overflow-scrolling: touch;
-}
+.btn-close { background: var(--chip-bg); border: none; border-radius: 16px; padding: 5px 14px; font-size: 13px; cursor: pointer; color: var(--text); }
+.sheet-body { overflow-y: auto; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); -webkit-overflow-scrolling: touch; }
 
-/* ─── INFO-SHEET ─── */
-.info-row {
-  display: flex; gap: 12px; margin-bottom: 14px;
-  align-items: flex-start;
-}
+/* ─── INFO ─── */
+.info-row { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
 .help-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; margin-top: 1px; color: var(--muted); }
 .info-row p { font-size: 14px; color: var(--text2); line-height: 1.5; }
-.info-row strong { color: var(--text); }
 .info-version { font-size: 12px; color: var(--muted); text-align: center; margin-top: 16px; }
 
-/* ─── SETTINGS-SHEET ─── */
-.settings-group { margin-bottom: 20px; }
-.settings-label {
-  font-size: 12px; font-weight: 600; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .5px;
-  margin-bottom: 8px; display: block;
-}
-.settings-select, .settings-input {
+/* ─── SETTINGS ─── */
+.settings-group { margin-bottom: 22px; }
+.settings-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; display: block; }
+.settings-select, .settings-input, .settings-textarea {
   width: 100%; padding: 10px 12px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--bg);
   color: var(--text); font-size: 15px; margin-bottom: 8px;
 }
+.settings-textarea { font-size: 13px; resize: vertical; min-height: 60px; font-family: inherit; }
 .settings-row { display: flex; gap: 8px; }
-.settings-row .settings-select { flex: 1; margin-bottom: 0; }
-.btn-save {
-  width: 100%; padding: 14px; background: var(--accent); color: #fff;
-  border: none; border-radius: 12px; font-size: 16px;
-  font-weight: 700; cursor: pointer; min-height: 50px; margin-top: 8px;
-}
+.settings-row .settings-select, .settings-row .settings-input { flex: 1; margin-bottom: 0; }
+.btn-save { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; min-height: 50px; margin-top: 8px; }
 .btn-save:active { opacity: .8; }
 
-/* Absender-Mapping */
+/* Absender */
 .sender-list { margin-bottom: 8px; }
-.sender-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 0; border-bottom: 1px solid var(--border);
-}
-.sender-email { font-size: 13px; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sender-cat {
-  font-size: 12px; color: #fff; padding: 2px 8px; border-radius: 8px;
-  background: var(--accent); flex-shrink: 0;
-}
-.btn-del {
-  border: none; background: none; cursor: pointer;
-  color: var(--red); padding: 4px; flex-shrink: 0; display: flex;
-}
-.add-sender-row { display: flex; gap: 6px; margin-top: 8px; }
-.add-sender-row .settings-input { flex: 1; margin: 0; font-size: 13px; padding: 8px 10px; }
-.add-sender-row .settings-select { width: 130px; margin: 0; font-size: 13px; padding: 8px 10px; }
-.btn-add {
-  background: var(--accent); color: #fff; border: none; border-radius: 10px;
-  padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; flex-shrink: 0;
-}
+.sender-row { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.sender-email { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sender-cat { font-size: 12px; color: #fff; padding: 2px 8px; border-radius: 8px; background: var(--accent); flex-shrink: 0; }
+.btn-del { border: none; background: none; cursor: pointer; color: var(--red); padding: 4px; flex-shrink: 0; display: flex; }
+.add-sender-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.add-sender-row .settings-input { min-width: 140px; flex: 2; margin: 0; font-size: 13px; padding: 8px 10px; }
+.add-sender-row .settings-select { flex: 1; min-width: 100px; margin: 0; font-size: 13px; padding: 8px 10px; }
+.btn-add { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; flex-shrink: 0; }
 
-/* Token-Feld */
+/* Token */
 .token-row { display: flex; gap: 8px; }
 .token-row .settings-input { flex: 1; margin: 0; font-size: 13px; padding: 8px 10px; }
 .btn-token { background: var(--bg3); color: var(--text); border: none; border-radius: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer; flex-shrink: 0; }
+
+/* Kategorie-Karten */
+.cat-card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden; }
+.cat-card-hd { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; }
+.cat-toggle { width: 38px; height: 22px; flex-shrink: 0; position: relative; }
+.cat-toggle input { opacity: 0; width: 0; height: 0; }
+.cat-toggle-slider {
+  position: absolute; inset: 0; background: var(--border); border-radius: 11px; transition: background .2s;
+}
+.cat-toggle input:checked + .cat-toggle-slider { background: var(--green); }
+.cat-toggle-slider::after {
+  content: ''; position: absolute; width: 16px; height: 16px; background: #fff;
+  border-radius: 50%; top: 3px; left: 3px; transition: transform .2s;
+}
+.cat-toggle input:checked + .cat-toggle-slider::after { transform: translateX(16px); }
+.cat-card-name { flex: 1; font-size: 14px; font-weight: 600; }
+.cat-expand-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 18px; padding: 0 4px; flex-shrink: 0; }
+.cat-card-body { display: none; padding: 0 14px 14px; border-top: 1px solid var(--border); }
+.cat-card-body.open { display: block; }
+.cat-field-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 4px; display: block; }
+.kw-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.kw-chip { display: flex; align-items: center; gap: 4px; background: var(--chip-bg); border-radius: 12px; padding: 3px 10px; font-size: 12px; }
+.kw-chip button { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; line-height: 1; padding: 0; }
+.kw-add-row { display: flex; gap: 6px; }
+.kw-add-row input { flex: 1; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; }
+.kw-add-row button { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; flex-shrink: 0; }
+.btn-del-cat { margin-top: 12px; background: none; border: 1px solid var(--red); color: var(--red); border-radius: 10px; padding: 8px 14px; font-size: 13px; cursor: pointer; width: 100%; }
+.btn-add-cat { width: 100%; padding: 10px; background: none; border: 2px dashed var(--border); color: var(--muted); border-radius: 12px; font-size: 14px; cursor: pointer; margin-top: 4px; }
+.btn-add-cat:active { border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
 <body>
 
-<!-- Pull-to-Refresh -->
 <div id="ptr"><div class="ptr-spin"></div> Aktualisiere…</div>
 
-<!-- Header -->
 <div id="header">
   <div id="header-left">
     <span id="header-title">Newsletter Digest</span>
@@ -282,27 +224,8 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </div>
 </div>
 
-<!-- Kategorien-Tabs -->
-<div id="tabs-bar">
-  <button class="tab-btn active" data-cat="ki_tech" onclick="switchTab(this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h1v6H9M14 9h2M14 12h2M14 15h2"/></svg>
-    KI &amp; Tech
-  </button>
-  <button class="tab-btn" data-cat="finanzen" onclick="switchTab(this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-    Finanzen
-  </button>
-  <button class="tab-btn" data-cat="automobil" onclick="switchTab(this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2"/><path d="M19 17h2a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><rect x="5" y="7" width="14" height="10" rx="2"/><circle cx="7.5" cy="17" r="2.5"/><circle cx="16.5" cy="17" r="2.5"/></svg>
-    Automobil
-  </button>
-  <button class="tab-btn" data-cat="lokal" onclick="switchTab(this)">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-    Lokal
-  </button>
-</div>
+<div id="tabs-bar"></div>
 
-<!-- Archiv-Leiste -->
 <div id="archive-bar">
   <span id="archive-label">Ausgabe:</span>
   <select id="archive-select" onchange="loadDigest(this.value)">
@@ -310,23 +233,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </select>
 </div>
 
-<!-- Hauptinhalt -->
 <div id="main">
   <div id="loading"><div class="spinner"></div>Lade Digest…</div>
   <div id="error-box"></div>
   <div id="empty-box">Noch keine Ausgabe vorhanden.</div>
   <div id="digest-meta"></div>
-
-  <div id="section-ki_tech"   class="digest-section active"></div>
-  <div id="section-finanzen"  class="digest-section"></div>
-  <div id="section-automobil" class="digest-section"></div>
-  <div id="section-lokal"     class="digest-section"></div>
+  <div id="digest-sections"></div>
 </div>
 
-<!-- Scroll-to-Top -->
 <button class="back-top" id="back-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
-<!-- ─── INFO-OVERLAY ─── -->
+<!-- INFO-OVERLAY -->
 <div id="info-overlay" class="overlay" onclick="if(event.target===this)this.classList.remove('show')">
   <div class="sheet">
     <div class="sheet-hd">
@@ -336,26 +253,22 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div class="sheet-body">
       <div class="info-row">
         <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/></svg></span>
-        <p><strong>Newsletter Digest</strong> – Tägliche KI-generierte Zusammenfassungen deiner Newsletter in vier Kategorien: KI &amp; Tech, Finanzen, Automobil und Lokales.</p>
+        <p><strong>Newsletter Digest</strong> – KI-generierte Zusammenfassungen deiner Newsletter. Kategorien, Schlagwörter und Erscheinungsrhythmus sind frei konfigurierbar.</p>
       </div>
       <div class="info-row">
         <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
-        <p>Die Zusammenfassungen werden automatisch erstellt – je nach Einstellung täglich, wöchentlich oder monatlich.</p>
+        <p>Unter <strong>Einstellungen</strong>: Zeitplan (inkl. Uhrzeit), Rubriken an/aus, neue Rubriken anlegen, Schlagwörter pro Rubrik, Absender-Zuordnung.</p>
       </div>
       <div class="info-row">
-        <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
-        <p>Lokale Nachrichten: <strong>Bayerbach, Hölskofen, Oberköllnbach und Paindlkofen</strong> (Niederbayern).</p>
+        <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></span>
+        <p>Schlagwörter werden priorisiert: Artikel zu diesen Themen erscheinen weiter oben in der Zusammenfassung.</p>
       </div>
-      <div class="info-row">
-        <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
-        <p>Über <strong>Einstellungen</strong> kannst du den Zeitplan, die Archiv-Tiefe, die Anzahl Bullet Points sowie das Absender-Mapping verwalten.</p>
-      </div>
-      <p class="info-version">Newsletter Digest v1.0 · 2026-06-27</p>
+      <p class="info-version">Newsletter Digest v2.0 · 2026-06-27</p>
     </div>
   </div>
 </div>
 
-<!-- ─── SETTINGS-OVERLAY ─── -->
+<!-- SETTINGS-OVERLAY -->
 <div id="settings-overlay" class="overlay" onclick="if(event.target===this)this.classList.remove('show')">
   <div class="sheet">
     <div class="sheet-hd">
@@ -366,9 +279,9 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 
       <!-- Admin-Token -->
       <div class="settings-group">
-        <span class="settings-label">Admin-Token (einmalig eingeben)</span>
+        <span class="settings-label">Admin-Token</span>
         <div class="token-row">
-          <input type="password" id="s-token" class="settings-input" placeholder="Bearer-Token für Änderungen">
+          <input type="password" id="s-token" class="settings-input" placeholder="Bearer-Token">
           <button class="btn-token" onclick="saveToken()">Speichern</button>
         </div>
         <div id="token-status" style="font-size:12px;color:var(--muted);margin-top:4px;"></div>
@@ -379,10 +292,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         <span class="settings-label">Zeitplan</span>
         <select id="s-type" class="settings-select" onchange="onScheduleTypeChange()">
           <option value="daily">Täglich</option>
-          <option value="weekly" selected>Wöchentlich</option>
+          <option value="weekly">Wöchentlich</option>
           <option value="monthly">Monatlich</option>
         </select>
-        <div id="s-weekly-opts" class="settings-row">
+        <div id="s-weekly-opts" class="settings-row" style="margin-bottom:8px">
           <select id="s-weekday" class="settings-select">
             <option value="monday">Montag</option>
             <option value="tuesday">Dienstag</option>
@@ -390,10 +303,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
             <option value="thursday">Donnerstag</option>
             <option value="friday">Freitag</option>
             <option value="saturday">Samstag</option>
-            <option value="sunday" selected>Sonntag</option>
+            <option value="sunday">Sonntag</option>
           </select>
         </div>
-        <div id="s-monthly-opts" class="settings-row" style="display:none">
+        <div id="s-monthly-opts" class="settings-row" style="display:none;margin-bottom:8px">
           <select id="s-week" class="settings-select">
             <option value="1">1. Woche</option>
             <option value="2">2. Woche</option>
@@ -405,10 +318,14 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
             <option value="tuesday">Dienstag</option>
             <option value="wednesday">Mittwoch</option>
             <option value="thursday">Donnerstag</option>
-            <option value="friday" selected>Freitag</option>
+            <option value="friday">Freitag</option>
             <option value="saturday">Samstag</option>
             <option value="sunday">Sonntag</option>
           </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <label style="font-size:13px;color:var(--muted);white-space:nowrap">Uhrzeit:</label>
+          <select id="s-hour" class="settings-select" style="margin-bottom:0;max-width:120px"></select>
         </div>
       </div>
 
@@ -417,54 +334,47 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         <span class="settings-label">Ausgaben im Archiv</span>
         <select id="s-archive" class="settings-select">
           <option value="5">5</option>
-          <option value="10" selected>10</option>
+          <option value="10">10</option>
           <option value="15">15</option>
           <option value="30">30</option>
         </select>
       </div>
 
-      <!-- Bullet Points -->
+      <!-- Kategorien -->
       <div class="settings-group">
-        <span class="settings-label">Bullet Points pro Kategorie</span>
-        <select id="s-bullets" class="settings-select">
-          <option value="5">5</option>
-          <option value="7">7</option>
-          <option value="10" selected>10</option>
-          <option value="15">15</option>
-        </select>
+        <span class="settings-label">Rubriken</span>
+        <div id="cat-list"></div>
+        <button class="btn-add-cat" onclick="addCategory()">+ Neue Rubrik</button>
       </div>
 
       <!-- Absender-Mapping -->
       <div class="settings-group">
-        <span class="settings-label">Absender → Kategorie</span>
+        <span class="settings-label">Absender → Rubrik</span>
         <div id="sender-list" class="sender-list"></div>
         <div class="add-sender-row">
           <input type="email" id="s-new-email" class="settings-input" placeholder="absender@domain.com">
-          <select id="s-new-cat" class="settings-select">
-            <option value="ki_tech">KI &amp; Tech</option>
-            <option value="finanzen">Finanzen</option>
-            <option value="automobil">Automobil</option>
-            <option value="lokal">Lokal</option>
-          </select>
+          <select id="s-new-cat" class="settings-select"></select>
           <button class="btn-add" onclick="addSender()">+</button>
         </div>
       </div>
 
       <button class="btn-save" onclick="saveSettings()">Speichern</button>
-      <div id="settings-status" style="font-size:13px;color:var(--muted);text-align:center;margin-top:10px;"></div>
+      <div id="settings-status" style="font-size:13px;color:var(--muted);text-align:center;margin-top:10px;min-height:20px;"></div>
     </div>
   </div>
 </div>
 
 <script>
 const API = '/newsletter';
-const CATS = {ki_tech:'KI & Tech', finanzen:'Finanzen', automobil:'Automobil', lokal:'Lokal'};
-let currentCat = 'ki_tech';
-let currentDigest = null;
+let currentCat = null;
+let _cfg = null;  // aktuelle config aus API
 
 // ─── Init ─────────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  fillHourSelect();
+  _cfg = await fetchConfig();
+  renderTabs(_cfg);
   loadDigestList();
   loadDigest('latest');
 });
@@ -472,6 +382,60 @@ document.addEventListener('DOMContentLoaded', () => {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/newsletter/sw.js', {scope: '/newsletter/'})
     .catch(e => console.warn('[sw]', e));
+}
+
+// ─── Config ───────────────────────────────────────────────────────────────
+
+async function fetchConfig() {
+  try {
+    const r = await fetch(`${API}/api/config`);
+    return await r.json();
+  } catch(e) {
+    console.error('Config:', e);
+    return {categories:[], senders:{}, schedule:{}, max_archive:10};
+  }
+}
+
+function activeCats(cfg) {
+  return (cfg.categories || []).filter(c => c.enabled !== false);
+}
+
+// ─── Tabs dynamisch ───────────────────────────────────────────────────────
+
+function renderTabs(cfg) {
+  const bar = document.getElementById('tabs-bar');
+  const secs = document.getElementById('digest-sections');
+  bar.innerHTML = '';
+  secs.innerHTML = '';
+
+  const cats = activeCats(cfg);
+  if (!cats.length) return;
+
+  cats.forEach((cat, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (i === 0 ? ' active' : '');
+    btn.dataset.cat = cat.id;
+    btn.textContent = cat.name;
+    btn.onclick = () => switchTab(btn);
+    bar.appendChild(btn);
+
+    const sec = document.createElement('div');
+    sec.id = `section-${cat.id}`;
+    sec.className = 'digest-section' + (i === 0 ? ' active' : '');
+    secs.appendChild(sec);
+  });
+
+  if (cats.length) currentCat = cats[0].id;
+}
+
+function switchTab(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.digest-section').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  currentCat = btn.dataset.cat;
+  const sec = document.getElementById(`section-${currentCat}`);
+  if (sec) sec.classList.add('active');
+  window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
 // ─── Pull-to-Refresh ──────────────────────────────────────────────────────
@@ -485,34 +449,21 @@ document.addEventListener('touchmove', e => {
   if (!ptrActive) return;
   if (e.touches[0].clientY - ptrStartY > 50) ptrEl.classList.add('show');
 }, {passive: true});
-document.addEventListener('touchend', e => {
+document.addEventListener('touchend', async () => {
   if (!ptrActive) return;
-  if (e.changedTouches[0].clientY - ptrStartY > 80) {
-    loadDigestList();
-    loadDigest(document.getElementById('archive-select').value || 'latest');
-  }
+  _cfg = await fetchConfig();
+  renderTabs(_cfg);
+  loadDigestList();
+  loadDigest(document.getElementById('archive-select').value || 'latest');
   ptrEl.classList.remove('show');
   ptrActive = false;
 }, {passive: true});
-
-// ─── Scroll-to-Top ────────────────────────────────────────────────────────
 
 window.addEventListener('scroll', () => {
   document.getElementById('back-top').classList.toggle('vis', window.scrollY > 300);
 });
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────
-
-function switchTab(btn) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.digest-section').forEach(s => s.classList.remove('active'));
-  btn.classList.add('active');
-  currentCat = btn.dataset.cat;
-  document.getElementById(`section-${currentCat}`).classList.add('active');
-  window.scrollTo({top: 0, behavior: 'smooth'});
-}
-
-// ─── Archiv-Liste laden ───────────────────────────────────────────────────
+// ─── Archiv ───────────────────────────────────────────────────────────────
 
 async function loadDigestList() {
   try {
@@ -526,9 +477,7 @@ async function loadDigestList() {
       opt.textContent = formatDate(d);
       sel.appendChild(opt);
     });
-  } catch (e) {
-    console.error('Archiv-Liste:', e);
-  }
+  } catch(e) { console.error('Archiv:', e); }
 }
 
 // ─── Digest laden ─────────────────────────────────────────────────────────
@@ -540,12 +489,8 @@ async function loadDigest(key) {
     const r = await fetch(url);
     if (r.status === 404) { showEmpty(); return; }
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-    currentDigest = data;
-    renderDigest(data);
-  } catch (e) {
-    showError('Fehler beim Laden: ' + e.message);
-  }
+    renderDigest(await r.json());
+  } catch(e) { showError('Fehler: ' + e.message); }
 }
 
 function showLoading() {
@@ -562,102 +507,70 @@ function showEmpty() {
 function showError(msg) {
   document.getElementById('loading').className = '';
   const el = document.getElementById('error-box');
-  el.textContent = msg;
-  el.className = 'show';
+  el.textContent = msg; el.className = 'show';
 }
 
 // ─── Digest rendern ───────────────────────────────────────────────────────
 
 function renderDigest(data) {
   document.getElementById('loading').className = '';
+  document.getElementById('header-date').textContent = formatDate(data.date);
 
   const metaEl = document.getElementById('digest-meta');
-  const d = new Date(data.date + 'T00:00:00');
-  document.getElementById('header-date').textContent = formatDate(data.date);
   metaEl.textContent = `Erstellt: ${new Date(data.generated_at).toLocaleString('de-DE')} · ${data.mail_count} Mails`;
   metaEl.className = 'show';
 
   const cats = data.categories || {};
-  Object.keys(CATS).forEach(cat => {
-    const sec = document.getElementById(`section-${cat}`);
-    if (cats[cat]) {
-      sec.innerHTML = parseDigestText(cats[cat]);
-    } else {
-      sec.innerHTML = `<div class="no-cat">Keine Inhalte für <strong>${CATS[cat]}</strong> in dieser Ausgabe.</div>`;
-    }
+  document.querySelectorAll('.digest-section').forEach(sec => {
+    const catId = sec.id.replace('section-', '');
+    const cfg = (_cfg?.categories || []).find(c => c.id === catId);
+    const name = cfg ? cfg.name : catId;
+    sec.innerHTML = cats[catId] ? parseDigestText(cats[catId]) : `<div class="no-cat">Keine Inhalte für <strong>${esc(name)}</strong>.</div>`;
   });
 }
 
 function parseDigestText(text) {
   const lines = text.split('\n');
-  let html = '';
-  let relevanz = '';
-
+  let html = '', relevanz = '';
   for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-
-    // "Relevanz heute:" Zeile
-    if (/^_?relevanz heute:/i.test(trimmed)) {
-      relevanz = trimmed.replace(/^_/, '').replace(/_$/, '').replace(/^\*\*/, '').replace(/\*\*$/, '');
+    const t = line.trim();
+    if (!t) continue;
+    if (/^_?relevanz heute:/i.test(t)) {
+      relevanz = t.replace(/^_/, '').replace(/_$/, '');
       continue;
     }
-
-    // Bullet mit **Titel** – Erklärung
-    const bold = trimmed.replace(/^[-*]\s*/, '');
-    const match = bold.match(/^\*\*(.+?)\*\*\s*[–-]\s*([\s\S]+)/);
-    if (match) {
-      html += `<div class="digest-item">
-        <div class="digest-item-title">${esc(match[1])}</div>
-        <div class="digest-item-body">${esc(match[2].trim())}</div>
-      </div>`;
+    const bold = t.replace(/^[-*]\s*/, '');
+    const m = bold.match(/^\*\*(.+?)\*\*\s*[–-]\s*([\s\S]+)/);
+    if (m) {
+      html += `<div class="digest-item"><div class="digest-item-title">${esc(m[1])}</div><div class="digest-item-body">${esc(m[2].trim())}</div></div>`;
       continue;
     }
-
-    // Nur **Titel** ohne Bindestrich
-    const boldOnly = bold.match(/^\*\*(.+?)\*\*\s*([\s\S]*)/);
-    if (boldOnly) {
-      html += `<div class="digest-item">
-        <div class="digest-item-title">${esc(boldOnly[1])}</div>
-        ${boldOnly[2].trim() ? `<div class="digest-item-body">${esc(boldOnly[2].trim())}</div>` : ''}
-      </div>`;
+    const b2 = bold.match(/^\*\*(.+?)\*\*\s*([\s\S]*)/);
+    if (b2) {
+      html += `<div class="digest-item"><div class="digest-item-title">${esc(b2[1])}</div>${b2[2].trim()?`<div class="digest-item-body">${esc(b2[2].trim())}</div>`:''}</div>`;
       continue;
     }
-
-    // Sonstige Zeile als Body-Text
-    if (html) {
-      html += `<div class="digest-item"><div class="digest-item-body">${esc(trimmed)}</div></div>`;
-    }
+    if (html) html += `<div class="digest-item"><div class="digest-item-body">${esc(t)}</div></div>`;
   }
-
-  if (relevanz) {
-    html += `<div class="digest-relevanz">${esc(relevanz)}</div>`;
-  }
-
+  if (relevanz) html += `<div class="digest-relevanz">${esc(relevanz)}</div>`;
   return html || `<div class="no-cat">Inhalt konnte nicht geparst werden.</div>`;
 }
 
 function esc(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
 function formatDate(d) {
-  const dt = new Date(d + 'T00:00:00');
-  return dt.toLocaleDateString('de-DE', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  return new Date(d + 'T00:00:00').toLocaleDateString('de-DE', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
 }
 
-// ─── Settings ─────────────────────────────────────────────────────────────
+// ─── Settings öffnen ──────────────────────────────────────────────────────
 
-function openSettings() {
-  loadSettingsFromAPI();
-  // Token aus localStorage
+async function openSettings() {
+  _cfg = await fetchConfig();
   const token = localStorage.getItem('nd_token') || '';
   document.getElementById('s-token').value = token;
   document.getElementById('token-status').textContent = token ? '✓ Token gespeichert' : '';
+  applyConfigToUI(_cfg);
   document.getElementById('settings-overlay').classList.add('show');
 }
 
@@ -667,74 +580,180 @@ function saveToken() {
   document.getElementById('token-status').textContent = val ? '✓ Token gespeichert' : 'Token gelöscht';
 }
 
+function fillHourSelect() {
+  const sel = document.getElementById('s-hour');
+  for (let h = 0; h < 24; h++) {
+    const o = document.createElement('option');
+    o.value = h;
+    o.textContent = `${String(h).padStart(2,'0')}:00 Uhr`;
+    if (h === 7) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+
 function onScheduleTypeChange() {
   const type = document.getElementById('s-type').value;
   document.getElementById('s-weekly-opts').style.display  = type === 'weekly'  ? '' : 'none';
   document.getElementById('s-monthly-opts').style.display = type === 'monthly' ? '' : 'none';
 }
 
-async function loadSettingsFromAPI() {
-  try {
-    const r = await fetch(`${API}/api/config`);
-    const cfg = await r.json();
-    applyConfigToUI(cfg);
-  } catch (e) {
-    console.error('Config laden:', e);
-  }
-}
+// ─── Config → UI ──────────────────────────────────────────────────────────
 
 function applyConfigToUI(cfg) {
   const sched = cfg.schedule || {};
-  document.getElementById('s-type').value    = sched.type    || 'weekly';
-  document.getElementById('s-weekday').value = sched.weekday || 'sunday';
-  document.getElementById('s-week').value    = sched.week    || '1';
+  document.getElementById('s-type').value     = sched.type    || 'weekly';
+  document.getElementById('s-weekday').value  = sched.weekday || 'sunday';
+  document.getElementById('s-week').value     = String(sched.week || 1);
   document.getElementById('s-mweekday').value = sched.weekday || 'friday';
-  document.getElementById('s-archive').value = String(cfg.max_archive || 10);
-  document.getElementById('s-bullets').value = String(cfg.bullet_points || 10);
+  document.getElementById('s-hour').value     = String(sched.hour ?? 7);
+  document.getElementById('s-archive').value  = String(cfg.max_archive || 10);
   onScheduleTypeChange();
-  renderSenderList(cfg.senders || {});
+  renderCatList(cfg.categories || []);
+  renderSenderList(cfg.senders || {}, cfg.categories || []);
+  rebuildSenderCatDropdown(cfg.categories || []);
 }
 
-function renderSenderList(senders) {
+// ─── Kategorien-UI ────────────────────────────────────────────────────────
+
+let _cats = [];  // live state für Kategorien im Settings-Sheet
+
+function renderCatList(cats) {
+  _cats = cats.map(c => ({...c, keywords: [...(c.keywords||[])]}));
+  rebuildCatCards();
+}
+
+function rebuildCatCards() {
+  const el = document.getElementById('cat-list');
+  el.innerHTML = '';
+  _cats.forEach((cat, idx) => {
+    el.innerHTML += catCardHTML(cat, idx);
+  });
+}
+
+function catCardHTML(cat, idx) {
+  const kws = (cat.keywords || []).map((k,ki) =>
+    `<span class="kw-chip">${esc(k)}<button onclick="removeKw(${idx},${ki})" title="Entfernen">×</button></span>`
+  ).join('');
+  return `
+  <div class="cat-card" id="cat-card-${idx}">
+    <div class="cat-card-hd" onclick="toggleCatCard(${idx})">
+      <label class="cat-toggle" onclick="event.stopPropagation()">
+        <input type="checkbox" ${cat.enabled !== false ? 'checked' : ''} onchange="setCatEnabled(${idx},this.checked)">
+        <span class="cat-toggle-slider"></span>
+      </label>
+      <span class="cat-card-name">${esc(cat.name)}</span>
+      <span class="cat-expand-btn">›</span>
+    </div>
+    <div class="cat-card-body" id="cat-body-${idx}">
+      <span class="cat-field-label">Name</span>
+      <input class="settings-input" style="margin-bottom:0" value="${esc(cat.name)}" oninput="setCatField(${idx},'name',this.value)">
+      <span class="cat-field-label">Kontext (Beschreibung für KI)</span>
+      <textarea class="settings-textarea" oninput="setCatField(${idx},'context',this.value)">${esc(cat.context||'')}</textarea>
+      <span class="cat-field-label">Bullet Points</span>
+      <input type="number" class="settings-input" style="margin-bottom:0;max-width:100px" min="3" max="20" value="${cat.bullet_points||10}" oninput="setCatField(${idx},'bullet_points',Number(this.value))">
+      <span class="cat-field-label">Schlagwörter (priorisiert)</span>
+      <div class="kw-list" id="kw-list-${idx}">${kws}</div>
+      <div class="kw-add-row">
+        <input type="text" id="kw-input-${idx}" placeholder="Schlagwort …" onkeydown="if(event.key==='Enter'){addKw(${idx});event.preventDefault()}">
+        <button onclick="addKw(${idx})">+</button>
+      </div>
+      <button class="btn-del-cat" onclick="deleteCategory(${idx})">Rubrik entfernen</button>
+    </div>
+  </div>`;
+}
+
+function toggleCatCard(idx) {
+  const body = document.getElementById(`cat-body-${idx}`);
+  body.classList.toggle('open');
+  const btn = document.querySelector(`#cat-card-${idx} .cat-expand-btn`);
+  btn.textContent = body.classList.contains('open') ? '∨' : '›';
+}
+
+function setCatEnabled(idx, val) {
+  _cats[idx].enabled = val;
+}
+function setCatField(idx, field, val) {
+  _cats[idx][field] = val;
+}
+function removeKw(catIdx, kwIdx) {
+  _cats[catIdx].keywords.splice(kwIdx, 1);
+  document.getElementById(`kw-list-${catIdx}`).innerHTML = (_cats[catIdx].keywords||[]).map((k,ki) =>
+    `<span class="kw-chip">${esc(k)}<button onclick="removeKw(${catIdx},${ki})" title="Entfernen">×</button></span>`
+  ).join('');
+}
+function addKw(catIdx) {
+  const inp = document.getElementById(`kw-input-${catIdx}`);
+  const val = inp.value.trim();
+  if (!val) return;
+  _cats[catIdx].keywords = _cats[catIdx].keywords || [];
+  _cats[catIdx].keywords.push(val);
+  inp.value = '';
+  document.getElementById(`kw-list-${catIdx}`).innerHTML = _cats[catIdx].keywords.map((k,ki) =>
+    `<span class="kw-chip">${esc(k)}<button onclick="removeKw(${catIdx},${ki})" title="Entfernen">×</button></span>`
+  ).join('');
+}
+function deleteCategory(idx) {
+  if (!confirm(`Rubrik „${_cats[idx].name}" wirklich entfernen?`)) return;
+  _cats.splice(idx, 1);
+  rebuildCatCards();
+  rebuildSenderCatDropdown(_cats);
+}
+function addCategory() {
+  _cats.push({id: `cat_${Date.now()}`, name: 'Neue Rubrik', enabled: true, bullet_points: 7, keywords: [], context: ''});
+  rebuildCatCards();
+  // Letzte Karte aufklappen
+  setTimeout(() => toggleCatCard(_cats.length - 1), 50);
+}
+
+// ─── Absender-Mapping ─────────────────────────────────────────────────────
+
+let _senders = {};
+
+function rebuildSenderCatDropdown(cats) {
+  const sel = document.getElementById('s-new-cat');
+  sel.innerHTML = cats.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+}
+
+function renderSenderList(senders, cats) {
+  _senders = {...senders};
+  const catMap = Object.fromEntries((cats||[]).map(c => [c.id, c.name]));
   const list = document.getElementById('sender-list');
-  list.innerHTML = Object.entries(senders).map(([email, cat]) => `
+  list.innerHTML = Object.entries(_senders).map(([email, cat]) => `
     <div class="sender-row">
       <span class="sender-email" title="${esc(email)}">${esc(email)}</span>
-      <span class="sender-cat">${esc(CATS[cat] || cat)}</span>
+      <span class="sender-cat">${esc(catMap[cat] || cat)}</span>
       <button class="btn-del" onclick="deleteSender('${esc(email)}')" title="Entfernen">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
       </button>
     </div>
   `).join('') || '<p style="font-size:13px;color:var(--muted);padding:8px 0">Noch keine Absender konfiguriert.</p>';
-  list._senders = {...senders};
 }
 
 function deleteSender(email) {
-  const list = document.getElementById('sender-list');
-  const senders = {...(list._senders || {})};
-  delete senders[email];
-  renderSenderList(senders);
+  delete _senders[email];
+  renderSenderList(_senders, _cats);
 }
 
 function addSender() {
   const email = document.getElementById('s-new-email').value.trim().toLowerCase();
   const cat   = document.getElementById('s-new-cat').value;
   if (!email || !email.includes('@')) return;
-  const list = document.getElementById('sender-list');
-  const senders = {...(list._senders || {}), [email]: cat};
-  renderSenderList(senders);
+  _senders[email] = cat;
+  renderSenderList(_senders, _cats);
   document.getElementById('s-new-email').value = '';
 }
+
+// ─── Settings speichern ───────────────────────────────────────────────────
 
 async function saveSettings() {
   const token = localStorage.getItem('nd_token') || '';
   if (!token) {
-    document.getElementById('settings-status').textContent = '⚠️ Kein Token gespeichert – bitte oben eingeben.';
+    document.getElementById('settings-status').textContent = '⚠️ Kein Token gespeichert.';
     return;
   }
 
   const type = document.getElementById('s-type').value;
-  const schedule = {type};
+  const schedule = {type, hour: Number(document.getElementById('s-hour').value)};
   if (type === 'weekly') {
     schedule.weekday = document.getElementById('s-weekday').value;
   } else if (type === 'monthly') {
@@ -742,13 +761,11 @@ async function saveSettings() {
     schedule.week    = Number(document.getElementById('s-week').value);
   }
 
-  const senders = document.getElementById('sender-list')._senders || {};
-
   const cfg = {
     schedule,
-    max_archive:   Number(document.getElementById('s-archive').value),
-    bullet_points: Number(document.getElementById('s-bullets').value),
-    senders,
+    max_archive: Number(document.getElementById('s-archive').value),
+    categories:  _cats,
+    senders:     _senders,
   };
 
   try {
@@ -759,9 +776,14 @@ async function saveSettings() {
     });
     if (r.status === 401) { document.getElementById('settings-status').textContent = '⚠️ Token ungültig.'; return; }
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
+    _cfg = await fetchConfig();
+    renderTabs(_cfg);
+
     document.getElementById('settings-status').textContent = '✓ Gespeichert';
     setTimeout(() => { document.getElementById('settings-status').textContent = ''; }, 2500);
-  } catch (e) {
+    document.getElementById('settings-overlay').classList.remove('show');
+  } catch(e) {
     document.getElementById('settings-status').textContent = 'Fehler: ' + e.message;
   }
 }

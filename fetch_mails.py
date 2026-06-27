@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""
-Newsletter Digest – Mail-Fetch Script
-Läuft täglich per systemd-Timer, prüft ob heute Ausgabe-Tag ist,
-holt Mails per IMAP und übergibt sie an Flask /api/process.
-"""
-import imaplib, email, os, sys, json, logging
+import imaplib, email, sys, json, logging
 from email.header import decode_header
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -27,11 +22,24 @@ GMAIL_PASSWORD        = _env.get("GMAIL_APP_PASSWORD", "")
 ANTHROPIC_API_KEY     = _env.get("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL_FALLBACK = "claude-haiku-4-5-20251001"
 CLAUDE_MODEL          = _env.get("CLAUDE_MODEL", CLAUDE_MODEL_FALLBACK)
+TELEGRAM_BOT_TOKEN    = _env.get("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID      = _env.get("TELEGRAM_CHAT_ID", "")
 IMAP_HOST             = "imap.gmail.com"
 IMAP_PORT             = 993
 LOOKBACK_HOURS        = 25
 
-VALID_CATEGORIES = {"ki_tech", "finanzen", "automobil", "lokal"}
+
+def notify_telegram(msg: str):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            json={"chat_id": TELEGRAM_CHAT_ID, "text": f"⚠️ [Newsletter-Fetch]\n{msg}"},
+            timeout=10,
+        )
+    except Exception:
+        pass
 
 
 def should_run() -> bool:
@@ -39,26 +47,42 @@ def should_run() -> bool:
         r = requests.get(f"{API_BASE}/api/should_run", timeout=10)
         data = r.json()
         if not data.get("run"):
-            log.info("Heute kein Ausgabe-Tag (%s) – Abbruch.", data.get("date"))
+            log.info("Heute kein Ausgabe-Zeitpunkt (%s) – Abbruch.", data.get("date"))
             return False
-        log.info("Ausgabe-Tag: %s", data.get("date"))
+        log.info("Ausgabe-Zeitpunkt: %s", data.get("date"))
         return True
     except Exception as e:
         log.error("should_run-Check fehlgeschlagen: %s", e)
         return False
 
 
-def get_sender_mapping() -> dict:
+def get_config() -> dict:
     try:
         r = requests.get(f"{API_BASE}/api/config", timeout=10)
-        return r.json().get("senders", {})
+        return r.json()
     except Exception as e:
-        log.warning("Config nicht geladen, leeres Mapping: %s", e)
+        log.warning("Config nicht geladen: %s", e)
         return {}
 
 
-def auto_categorize(from_addr: str, subject: str, body: str, model: str | None = None) -> str | None:
-    """Lässt Claude Haiku die Kategorie bestimmen. Gibt None zurück wenn keine Kategorie passt."""
+def get_valid_categories(cfg: dict) -> set[str]:
+    cats = cfg.get("categories", [])
+    return {c["id"] for c in cats if c.get("enabled", True)}
+
+
+def build_category_prompt(cfg: dict) -> str:
+    cats = cfg.get("categories", [])
+    lines = []
+    for c in cats:
+        if c.get("enabled", True):
+            lines.append(f"{c['id']} – {c.get('context', c['name'])}")
+    lines.append("keine – passt in keine dieser Kategorien")
+    return "\n".join(lines)
+
+
+def auto_categorize(from_addr: str, subject: str, body: str,
+                    valid_categories: set[str], cat_prompt: str,
+                    model: str | None = None) -> str | None:
     if model is None:
         model = CLAUDE_MODEL
 
@@ -66,13 +90,9 @@ def auto_categorize(from_addr: str, subject: str, body: str, model: str | None =
         f"Absender: {from_addr}\n"
         f"Betreff: {subject}\n"
         f"Inhalt (Auszug): {body[:600]}\n\n"
-        "Kategorisiere diesen Newsletter. Antworte NUR mit einem dieser Begriffe:\n"
-        "ki_tech – KI, Technologie, Software, Wissenschaft\n"
-        "finanzen – Finanzen, Wirtschaft, Aktien, Unternehmen\n"
-        "automobil – Automobil, E-Mobilität, Fahrzeuge, Verkehr\n"
-        "lokal – Lokales aus Bayerbach, Hölskofen, Oberköllnbach oder Paindlkofen (Niederbayern)\n"
-        "keine – passt in keine dieser Kategorien\n\n"
-        "Antwort (nur das eine Wort):"
+        f"Kategorisiere diesen Newsletter. Antworte NUR mit einem dieser Begriffe:\n"
+        f"{cat_prompt}\n\n"
+        f"Antwort (nur das eine Wort):"
     )
 
     try:
@@ -94,12 +114,13 @@ def auto_categorize(from_addr: str, subject: str, body: str, model: str | None =
         if resp.status_code in (400, 404) and "model_not_found" in resp.text.lower():
             if model != CLAUDE_MODEL_FALLBACK:
                 log.warning("Modell '%s' ungültig, Fallback auf '%s'", model, CLAUDE_MODEL_FALLBACK)
-                return auto_categorize(from_addr, subject, body, model=CLAUDE_MODEL_FALLBACK)
+                return auto_categorize(from_addr, subject, body, valid_categories, cat_prompt,
+                                       model=CLAUDE_MODEL_FALLBACK)
             return None
 
         resp.raise_for_status()
         cat = resp.json()["content"][0]["text"].strip().lower().split()[0]
-        if cat in VALID_CATEGORIES:
+        if cat in valid_categories:
             log.info("Auto-Kategorie für %s: %s", from_addr, cat)
             return cat
         log.info("Keine passende Kategorie für %s (%s) – übersprungen", from_addr, cat)
@@ -110,7 +131,7 @@ def auto_categorize(from_addr: str, subject: str, body: str, model: str | None =
         return None
 
 
-def decode_str(value: str | bytes | None) -> str:
+def decode_str(value) -> str:
     if value is None:
         return ""
     if isinstance(value, bytes):
@@ -126,7 +147,6 @@ def decode_str(value: str | bytes | None) -> str:
 
 
 def extract_body(msg) -> str:
-    """Plaintext-Body extrahieren, HTML als Fallback."""
     plain, html = "", ""
     if msg.is_multipart():
         for part in msg.walk():
@@ -147,13 +167,11 @@ def extract_body(msg) -> str:
             html = text
         else:
             plain = text
-
     body = plain or html
-    # Grob kürzen damit Claude nicht überflutet wird
     return body[:8000] if body else ""
 
 
-def fetch_mails(sender_mapping: dict) -> list:
+def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: str) -> list:
     mails = []
     try:
         log.info("Verbinde mit Gmail IMAP…")
@@ -161,7 +179,6 @@ def fetch_mails(sender_mapping: dict) -> list:
         imap.login(GMAIL_USER, GMAIL_PASSWORD)
         imap.select("INBOX")
 
-        # Mails der letzten LOOKBACK_HOURS holen
         since = (datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)).strftime("%d-%b-%Y")
         _, msg_ids = imap.search(None, f'(SINCE "{since}")')
 
@@ -176,23 +193,20 @@ def fetch_mails(sender_mapping: dict) -> list:
             msg = email.message_from_bytes(raw)
 
             from_raw = decode_str(msg.get("From", ""))
-            # E-Mail-Adresse aus "Name <email@domain.com>" extrahieren
-            from_addr = from_raw
             if "<" in from_raw and ">" in from_raw:
                 from_addr = from_raw.split("<")[1].split(">")[0].strip().lower()
             else:
                 from_addr = from_raw.strip().lower()
 
+            subject = decode_str(msg.get("Subject", "(kein Betreff)"))
+            body = extract_body(msg)
+
             category = sender_mapping.get(from_addr)
             if not category:
                 log.info("Absender unbekannt, Auto-Kategorisierung: %s", from_addr)
-                body_preview = extract_body(msg)
-                category = auto_categorize(from_addr, subject, body_preview)
+                category = auto_categorize(from_addr, subject, body, valid_categories, cat_prompt)
                 if not category:
                     continue
-
-            subject = decode_str(msg.get("Subject", "(kein Betreff)"))
-            body = extract_body(msg)
 
             mails.append({
                 "from":     from_addr,
@@ -213,22 +227,6 @@ def fetch_mails(sender_mapping: dict) -> list:
     return mails
 
 
-def notify_telegram(msg: str):
-    """Direkt-Alert ohne Flask (Fallback wenn Flask nicht erreichbar)."""
-    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    chat  = os.getenv("TELEGRAM_CHAT_ID", "")
-    if not token or not chat:
-        return
-    try:
-        requests.post(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id": chat, "text": f"⚠️ [Newsletter-Fetch]\n{msg}"},
-            timeout=10,
-        )
-    except Exception:
-        pass
-
-
 def process_mails(mails: list, date_str: str) -> bool:
     try:
         r = requests.post(
@@ -238,7 +236,7 @@ def process_mails(mails: list, date_str: str) -> bool:
                 "Content-Type": "application/json",
             },
             json={"date": date_str, "mails": mails},
-            timeout=300,   # Claude-Calls können dauern
+            timeout=300,
         )
         if r.ok:
             data = r.json()
@@ -262,20 +260,23 @@ def main():
     if not should_run():
         sys.exit(0)
 
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    sender_mapping = get_sender_mapping()
-
-    if not sender_mapping:
-        log.warning("Kein Absender-Mapping konfiguriert – keine Mails werden verarbeitet.")
-        notify_telegram("Kein Absender-Mapping konfiguriert. Bitte in der PWA unter Einstellungen eintragen.")
-        sys.exit(1)
-
     if not GMAIL_PASSWORD:
         log.error("GMAIL_APP_PASSWORD nicht gesetzt")
         notify_telegram("GMAIL_APP_PASSWORD fehlt in .env")
         sys.exit(1)
 
-    mails = fetch_mails(sender_mapping)
+    cfg = get_config()
+    sender_mapping = cfg.get("senders", {})
+    valid_categories = get_valid_categories(cfg)
+    cat_prompt = build_category_prompt(cfg)
+
+    if not valid_categories:
+        log.error("Keine aktiven Kategorien in Config – Abbruch.")
+        notify_telegram("Keine aktiven Kategorien konfiguriert.")
+        sys.exit(1)
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+    mails = fetch_mails(sender_mapping, valid_categories, cat_prompt)
 
     if not mails:
         log.info("Keine passenden Mails gefunden – kein Digest erstellt.")

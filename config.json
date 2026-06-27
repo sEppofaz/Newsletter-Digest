@@ -1,10 +1,44 @@
 {
   "schedule": {
     "type": "weekly",
-    "weekday": "sunday"
+    "weekday": "sunday",
+    "hour": 7
   },
   "max_archive": 10,
-  "bullet_points": 10,
+  "categories": [
+    {
+      "id": "ki_tech",
+      "name": "KI & Tech",
+      "enabled": true,
+      "bullet_points": 10,
+      "keywords": ["Claude", "GPT", "Anthropic", "OpenAI"],
+      "context": "KI, Machine Learning, Software-Entwicklung und Technologie"
+    },
+    {
+      "id": "finanzen",
+      "name": "Finanzen",
+      "enabled": true,
+      "bullet_points": 10,
+      "keywords": ["DAX", "S&P 500", "Bitcoin", "Leitzins"],
+      "context": "Finanzmärkte, Wirtschaft, Aktien und Unternehmen"
+    },
+    {
+      "id": "automobil",
+      "name": "Automobil",
+      "enabled": true,
+      "bullet_points": 7,
+      "keywords": ["BMW", "Mercedes", "VW", "Tesla"],
+      "context": "Automobil, E-Mobilität, Motorrad und Verkehr"
+    },
+    {
+      "id": "lokal",
+      "name": "Lokal",
+      "enabled": true,
+      "bullet_points": 5,
+      "keywords": ["Bayerbach", "Hölskofen", "Paindlkofen", "Dingolfing"],
+      "context": "Lokale Nachrichten aus Bayerbach, Hölskofen, Oberköllnbach und Paindlkofen (Niederbayern, Landkreis Dingolfing-Landau)"
+    }
+  ],
   "senders": {
     "dan@tldrnewsletter.com": "ki_tech",
     "thebatch@deeplearning.ai": "ki_tech",

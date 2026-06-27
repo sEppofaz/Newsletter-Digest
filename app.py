@@ -26,19 +26,16 @@ TELEGRAM_CHAT_ID   = _env.get("TELEGRAM_CHAT_ID", "")
 CLAUDE_MODEL_FALLBACK = "claude-haiku-4-5-20251001"
 CLAUDE_MODEL = _env.get("CLAUDE_MODEL", CLAUDE_MODEL_FALLBACK)
 
-CAT_NAMES = {
-    "ki_tech":   "KI & Tech",
-    "finanzen":  "Finanzen",
-    "automobil": "Automobil",
-    "lokal":     "Lokal",
-}
+DEFAULT_CATEGORIES = [
+    {"id": "ki_tech",   "name": "KI & Tech", "enabled": True, "bullet_points": 10, "keywords": ["Claude", "GPT", "Anthropic", "OpenAI"], "context": "KI, Machine Learning, Software-Entwicklung und Technologie"},
+    {"id": "finanzen",  "name": "Finanzen",  "enabled": True, "bullet_points": 10, "keywords": ["DAX", "S&P 500", "Bitcoin", "Leitzins"], "context": "Finanzmärkte, Wirtschaft, Aktien und Unternehmen"},
+    {"id": "automobil", "name": "Automobil", "enabled": True, "bullet_points": 7,  "keywords": ["BMW", "Mercedes", "VW", "Tesla"], "context": "Automobil, E-Mobilität, Motorrad und Verkehr"},
+    {"id": "lokal",     "name": "Lokal",     "enabled": True, "bullet_points": 5,  "keywords": ["Bayerbach", "Hölskofen", "Paindlkofen", "Dingolfing"], "context": "Lokale Nachrichten aus Bayerbach, Hölskofen, Oberköllnbach und Paindlkofen (Niederbayern, Landkreis Dingolfing-Landau)"},
+]
 
-CAT_CONTEXT = {
-    "ki_tech":   "KI, Machine Learning, Software-Entwicklung und Technologie",
-    "finanzen":  "Finanzmärkte, Wirtschaft, Aktien und Unternehmen",
-    "automobil": "Automobil, E-Mobilität, Motorrad und Verkehr",
-    "lokal":     "Lokale Nachrichten aus Bayerbach, Hölskofen, Oberköllnbach und Paindlkofen (Niederbayern, Landkreis Dingolfing-Landau)",
-}
+def get_active_categories(cfg: dict) -> list:
+    cats = cfg.get("categories", DEFAULT_CATEGORIES)
+    return [c for c in cats if c.get("enabled", True)]
 
 # ─── Hilfsfunktionen ─────────────────────────────────────────────────────────
 
@@ -62,7 +59,7 @@ def load_config() -> dict:
             return json.loads(CONFIG_FILE.read_text())
         except Exception:
             pass
-    return {"schedule": {"type": "weekly", "weekday": "sunday"}, "max_archive": 10, "bullet_points": 10, "senders": {}}
+    return {"schedule": {"type": "weekly", "weekday": "sunday", "hour": 7}, "max_archive": 10, "categories": DEFAULT_CATEGORIES, "senders": {}}
 
 
 def save_config(cfg: dict):
@@ -81,23 +78,27 @@ def require_bearer(f):
 
 def should_run_today() -> bool:
     cfg = load_config()
-    schedule = cfg.get("schedule", {"type": "weekly", "weekday": "sunday"})
-    today = datetime.now()
+    schedule = cfg.get("schedule", {"type": "weekly", "weekday": "sunday", "hour": 7})
+    now = datetime.now()
     WEEKDAYS = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
                 "friday": 4, "saturday": 5, "sunday": 6}
     stype = schedule.get("type", "weekly")
+    target_hour = int(schedule.get("hour", 7))
+
+    if now.hour != target_hour:
+        return False
 
     if stype == "daily":
         return True
     if stype == "weekly":
-        return today.weekday() == WEEKDAYS.get(schedule.get("weekday", "sunday"), 6)
+        return now.weekday() == WEEKDAYS.get(schedule.get("weekday", "sunday"), 6)
     if stype == "monthly":
         target_wd = WEEKDAYS.get(schedule.get("weekday", "friday"), 4)
         week_num = int(schedule.get("week", 1))
-        first = today.replace(day=1)
+        first = now.replace(day=1)
         delta = (target_wd - first.weekday()) % 7
         target_date = first + timedelta(days=delta + (week_num - 1) * 7)
-        return today.date() == target_date.date()
+        return now.date() == target_date.date()
     return False
 
 
@@ -110,23 +111,34 @@ def cleanup_old_digests(max_keep: int):
 
 # ─── Claude-Integration ──────────────────────────────────────────────────────
 
-def call_claude(category: str, mails: list, bullet_points: int, model: str | None = None) -> str | None:
+def call_claude(cat_cfg: dict, mails: list, model: str | None = None) -> str | None:
+    """cat_cfg: ein Eintrag aus config.json categories (id, name, bullet_points, context)"""
     if model is None:
         model = CLAUDE_MODEL
+
+    cat_id = cat_cfg.get("id", "?")
+    cat_name = cat_cfg.get("name", cat_id)
+    cat_context = cat_cfg.get("context", cat_name)
+    bullet_points = int(cat_cfg.get("bullet_points", 10))
 
     bodies = "\n---\n".join(
         f"Betreff: {m.get('subject', '(kein Betreff)')}\n\n{m.get('body', '')[:3000]}"
         for m in mails
     )
-    cat_context = CAT_CONTEXT.get(category, category)
-    cat_name = CAT_NAMES.get(category, category)
+
+    keywords = cat_cfg.get("keywords", [])
+    kw_line = (
+        f"\nBesonders relevant (priorisieren, falls vorhanden): {', '.join(keywords)}"
+        if keywords else ""
+    )
 
     system = (
-        f"Du bist ein redaktioneller Assistent für den Bereich: {cat_context}.\n"
+        f"Du bist ein redaktioneller Assistent für den Bereich: {cat_context}.{kw_line}\n"
         f"Du erhältst Newsletter-Inhalte und erstellst daraus eine hochwertige deutschsprachige Zusammenfassung.\n\n"
         f"Format (Markdown):\n"
         f"- Genau {bullet_points} Punkte\n"
         f"- Jeder Punkt: **Kurze prägnante Überschrift** – 2–3 Sätze Erläuterung, sachlich und informativ\n"
+        f"- Themen mit den priorisierten Schlagwörtern zuerst (falls vorhanden)\n"
         f"- Wichtigstes zuerst, kein Marketing-Sprech\n"
         f"- Letzter Absatz (eigene Zeile, kein Bullet): _Relevanz heute: [1 Satz]_\n"
         f"Antworte ausschließlich auf Deutsch."
@@ -151,7 +163,6 @@ def call_claude(category: str, mails: list, bullet_points: int, model: str | Non
             timeout=90,
         )
 
-        # Modell-ID ungültig → automatisch Fallback
         if resp.status_code in (400, 404) and (
             "model_not_found" in resp.text or "invalid model" in resp.text.lower()
         ):
@@ -159,7 +170,7 @@ def call_claude(category: str, mails: list, bullet_points: int, model: str | Non
                 msg = f"Modell '{model}' ungültig → Fallback auf '{CLAUDE_MODEL_FALLBACK}'"
                 log.error(msg)
                 telegram_alert(msg)
-                return call_claude(category, mails, bullet_points, model=CLAUDE_MODEL_FALLBACK)
+                return call_claude(cat_cfg, mails, model=CLAUDE_MODEL_FALLBACK)
             else:
                 telegram_alert(f"Fallback-Modell '{CLAUDE_MODEL_FALLBACK}' ebenfalls ungültig!")
                 return None
@@ -168,7 +179,7 @@ def call_claude(category: str, mails: list, bullet_points: int, model: str | Non
         return resp.json()["content"][0]["text"]
 
     except Exception as e:
-        err = f"Claude-API-Fehler (Kategorie {category}): {e}"
+        err = f"Claude-API-Fehler (Kategorie {cat_id}): {e}"
         log.error(err)
         telegram_alert(err)
         return None
@@ -277,7 +288,6 @@ def api_config_post():
 @app.route("/api/process", methods=["POST"])
 @require_bearer
 def api_process():
-    """n8n schickt Mails → Flask ruft Claude auf → Digest gespeichert."""
     data = request.get_json(force=True)
     mails = data.get("mails", [])
     date_str = data.get("date", datetime.now().strftime("%Y-%m-%d"))
@@ -285,21 +295,25 @@ def api_process():
     if not mails:
         return jsonify({"error": "Keine Mails übergeben"}), 400
 
-    # Nach Kategorie gruppieren
     by_cat: dict[str, list] = {}
     for mail in mails:
         cat = mail.get("category", "sonstige")
         by_cat.setdefault(cat, []).append(mail)
 
     cfg = load_config()
-    bullet_points = int(cfg.get("bullet_points", 10))
+    active_cats = get_active_categories(cfg)
+    cat_map = {c["id"]: c for c in active_cats}
 
     categories_result = {}
-    for cat, cat_mails in by_cat.items():
-        log.info("Verarbeite Kategorie '%s' (%d Mails)", cat, len(cat_mails))
-        summary = call_claude(cat, cat_mails, bullet_points)
+    for cat_id, cat_mails in by_cat.items():
+        cat_cfg = cat_map.get(cat_id)
+        if cat_cfg is None:
+            log.warning("Kategorie '%s' nicht in aktiver Config – übersprungen", cat_id)
+            continue
+        log.info("Verarbeite Kategorie '%s' (%d Mails)", cat_id, len(cat_mails))
+        summary = call_claude(cat_cfg, cat_mails)
         if summary:
-            categories_result[cat] = summary
+            categories_result[cat_id] = summary
 
     if not categories_result:
         telegram_alert(f"Digest {date_str}: Keine Zusammenfassungen generiert – alle Kategorien fehlgeschlagen.")
