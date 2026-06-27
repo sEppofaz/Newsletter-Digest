@@ -1,0 +1,21 @@
+{
+  "schedule": {
+    "type": "weekly",
+    "weekday": "sunday"
+  },
+  "max_archive": 10,
+  "bullet_points": 10,
+  "senders": {
+    "dan@tldrnewsletter.com": "ki_tech",
+    "thebatch@deeplearning.ai": "ki_tech",
+    "jack@importai.com": "ki_tech",
+    "azeem@exponentialview.co": "ki_tech",
+    "developer@heise.de": "ki_tech",
+    "hello@morningbrew.com": "finanzen",
+    "byrne@thediff.co": "finanzen",
+    "redaktion@finanz-szene.de": "finanzen",
+    "newsletter@deraktionaer.de": "finanzen",
+    "newsletter@electrive.net": "automobil",
+    "newsletter@automobilwoche.de": "automobil"
+  }
+}

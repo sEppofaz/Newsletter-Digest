@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1e3a5f" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1e3a5f" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Digest">
+<link rel="apple-touch-icon" href="/newsletter/apple-touch-icon.png">
+<link rel="manifest" href="/newsletter/manifest.json">
+<title>Newsletter Digest</title>
+<style>
+:root {
+  --bg:      #f2f2f7;
+  --bg2:     #ffffff;
+  --bg3:     #e5e5ea;
+  --accent:  #1e3a5f;
+  --accent2: #2d5a8e;
+  --text:    #000000;
+  --text2:   #3c3c43;
+  --muted:   #6e6e73;
+  --border:  #c6c6c8;
+  --green:   #34c759;
+  --red:     #ff3b30;
+  --yellow:  #ff9f0a;
+  --chip-bg: #e5e5ea;
+  --card-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:      #1c1c1e;
+    --bg2:     #2c2c2e;
+    --bg3:     #3a3a3c;
+    --accent:  #4a8fd4;
+    --accent2: #5ba3e8;
+    --text:    #ffffff;
+    --text2:   #ebebf5cc;
+    --muted:   #aeaeb2;
+    --border:  #38383a;
+    --chip-bg: #3a3a3c;
+    --card-shadow: 0 1px 3px rgba(0,0,0,.3);
+  }
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 16px; line-height: 1.5; }
+
+/* ─── HEADER ─── */
+#header {
+  position: sticky; top: 0; z-index: 100;
+  background: #1e3a5f;
+  padding: calc(env(safe-area-inset-top) + 10px) calc(16px + env(safe-area-inset-right)) 10px calc(16px + env(safe-area-inset-left));
+  display: flex; align-items: center; justify-content: space-between;
+}
+#header-title { color: #fff; font-size: 17px; font-weight: 700; }
+#header-date { color: rgba(255,255,255,.65); font-size: 13px; margin-top: 1px; }
+#header-left { display: flex; flex-direction: column; }
+#header-right { display: flex; gap: 8px; align-items: center; }
+#btn-settings, #btn-info {
+  background: rgba(255,255,255,.15); border: none; color: #fff;
+  height: 34px; padding: 0 12px; border-radius: 9px;
+  font-size: 13px; font-weight: 600; letter-spacing: .3px; cursor: pointer;
+  transition: background .15s;
+}
+#btn-settings:active, #btn-info:active { background: rgba(255,255,255,.3); }
+
+/* ─── PULL-TO-REFRESH ─── */
+#ptr {
+  position: fixed; top: -60px; left: 50%; transform: translateX(-50%);
+  background: var(--bg2); border-radius: 20px; padding: 8px 16px;
+  font-size: .85rem; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.15);
+  transition: top .2s ease; z-index: 200;
+}
+#ptr.show { top: calc(env(safe-area-inset-top) + 60px); }
+.ptr-spin {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--bg3); border-top-color: var(--accent);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── KATEGORIEN-TABS ─── */
+#tabs-bar {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+  display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+}
+#tabs-bar::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex-shrink: 0; border: none; background: none;
+  padding: 12px 10px 11px; cursor: pointer;
+  color: var(--muted); font-size: 14px; font-weight: 500;
+  border-bottom: 2px solid transparent;
+  display: flex; align-items: center; gap: 5px;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn svg { flex-shrink: 0; }
+
+/* ─── ARCHIV-LEISTE ─── */
+#archive-bar {
+  background: var(--bg); padding: 8px 16px;
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+#archive-label { font-size: 13px; color: var(--muted); }
+#archive-select {
+  flex: 1; padding: 6px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg2);
+  color: var(--text); font-size: 13px; max-width: 200px;
+}
+
+/* ─── HAUPTINHALT ─── */
+#main {
+  padding: 12px calc(16px + env(safe-area-inset-right)) calc(80px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  max-width: 720px; margin: 0 auto;
+}
+
+/* ─── LOADING / ERROR / EMPTY ─── */
+#loading, #error-box, #empty-box {
+  text-align: center; padding: 48px 24px; color: var(--muted);
+  display: none;
+}
+#loading.show, #error-box.show, #empty-box.show { display: block; }
+#error-box { color: #ff453a; background: #450a0a; border-radius: 12px; margin: 16px 0; color: #fecaca; }
+.spinner {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 3px solid var(--bg3); border-top-color: var(--accent);
+  animation: spin .8s linear infinite; margin: 0 auto 12px;
+}
+
+/* ─── DIGEST-KARTE ─── */
+#digest-meta {
+  font-size: 12px; color: var(--muted); margin-bottom: 12px;
+  display: none;
+}
+#digest-meta.show { display: block; }
+.digest-section { display: none; }
+.digest-section.active { display: block; }
+
+.digest-item {
+  background: var(--bg2); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 10px;
+  box-shadow: var(--card-shadow);
+}
+.digest-item-title {
+  font-weight: 700; font-size: 15px; color: var(--text);
+  margin-bottom: 6px; line-height: 1.3;
+}
+.digest-item-body {
+  font-size: 14px; color: var(--text2); line-height: 1.55;
+}
+.digest-relevanz {
+  background: var(--bg3); border-radius: 10px;
+  padding: 10px 14px; margin-top: 6px;
+  font-size: 13px; color: var(--muted); font-style: italic;
+}
+.no-cat {
+  text-align: center; padding: 48px 24px;
+  color: var(--muted); font-size: 14px;
+}
+
+/* ─── SCROLL-TO-TOP ─── */
+.back-top {
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom)); right: 16px;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent); color: #fff; border: none;
+  font-size: 20px; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+  display: none; align-items: center; justify-content: center;
+  z-index: 200; transition: opacity .2s;
+}
+.back-top.vis { display: flex; }
+.back-top:active { opacity: .7; }
+
+/* ─── OVERLAYS (gemeinsam) ─── */
+.overlay {
+  display: none; position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,.4);
+}
+.overlay.show { display: flex; align-items: flex-end; }
+.sheet {
+  background: var(--bg2); border-radius: 20px 20px 0 0;
+  width: 100%; max-height: 88vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 -4px 20px rgba(0,0,0,.15);
+}
+.sheet-hd {
+  padding: 14px 16px 10px;
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.sheet-hd strong { font-size: 16px; }
+.btn-close {
+  background: var(--chip-bg); border: none; border-radius: 16px;
+  padding: 5px 14px; font-size: 13px; cursor: pointer; color: var(--text);
+}
+.sheet-body {
+  overflow-y: auto; padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ─── INFO-SHEET ─── */
+.info-row {
+  display: flex; gap: 12px; margin-bottom: 14px;
+  align-items: flex-start;
+}
+.help-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 22px; margin-top: 1px; color: var(--muted); }
+.info-row p { font-size: 14px; color: var(--text2); line-height: 1.5; }
+.info-row strong { color: var(--text); }
+.info-version { font-size: 12px; color: var(--muted); text-align: center; margin-top: 16px; }
+
+/* ─── SETTINGS-SHEET ─── */
+.settings-group { margin-bottom: 20px; }
+.settings-label {
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: 8px; display: block;
+}
+.settings-select, .settings-input {
+  width: 100%; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text); font-size: 15px; margin-bottom: 8px;
+}
+.settings-row { display: flex; gap: 8px; }
+.settings-row .settings-select { flex: 1; margin-bottom: 0; }
+.btn-save {
+  width: 100%; padding: 14px; background: var(--accent); color: #fff;
+  border: none; border-radius: 12px; font-size: 16px;
+  font-weight: 700; cursor: pointer; min-height: 50px; margin-top: 8px;
+}
+.btn-save:active { opacity: .8; }
+
+/* Absender-Mapping */
+.sender-list { margin-bottom: 8px; }
+.sender-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.sender-email { font-size: 13px; color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sender-cat {
+  font-size: 12px; color: #fff; padding: 2px 8px; border-radius: 8px;
+  background: var(--accent); flex-shrink: 0;
+}
+.btn-del {
+  border: none; background: none; cursor: pointer;
+  color: var(--red); padding: 4px; flex-shrink: 0; display: flex;
+}
+.add-sender-row { display: flex; gap: 6px; margin-top: 8px; }
+.add-sender-row .settings-input { flex: 1; margin: 0; font-size: 13px; padding: 8px 10px; }
+.add-sender-row .settings-select { width: 130px; margin: 0; font-size: 13px; padding: 8px 10px; }
+.btn-add {
+  background: var(--accent); color: #fff; border: none; border-radius: 10px;
+  padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+}
+
+/* Token-Feld */
+.token-row { display: flex; gap: 8px; }
+.token-row .settings-input { flex: 1; margin: 0; font-size: 13px; padding: 8px 10px; }
+.btn-token { background: var(--bg3); color: var(--text); border: none; border-radius: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- Pull-to-Refresh -->
+<div id="ptr"><div class="ptr-spin"></div> Aktualisiere…</div>
+
+<!-- Header -->
+<div id="header">
+  <div id="header-left">
+    <span id="header-title">Newsletter Digest</span>
+    <span id="header-date"></span>
+  </div>
+  <div id="header-right">
+    <button id="btn-settings" onclick="openSettings()">Einstellungen</button>
+    <button id="btn-info" onclick="document.getElementById('info-overlay').classList.add('show')">Info</button>
+  </div>
+</div>
+
+<!-- Kategorien-Tabs -->
+<div id="tabs-bar">
+  <button class="tab-btn active" data-cat="ki_tech" onclick="switchTab(this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h1v6H9M14 9h2M14 12h2M14 15h2"/></svg>
+    KI &amp; Tech
+  </button>
+  <button class="tab-btn" data-cat="finanzen" onclick="switchTab(this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    Finanzen
+  </button>
+  <button class="tab-btn" data-cat="automobil" onclick="switchTab(this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2"/><path d="M19 17h2a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><rect x="5" y="7" width="14" height="10" rx="2"/><circle cx="7.5" cy="17" r="2.5"/><circle cx="16.5" cy="17" r="2.5"/></svg>
+    Automobil
+  </button>
+  <button class="tab-btn" data-cat="lokal" onclick="switchTab(this)">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    Lokal
+  </button>
+</div>
+
+<!-- Archiv-Leiste -->
+<div id="archive-bar">
+  <span id="archive-label">Ausgabe:</span>
+  <select id="archive-select" onchange="loadDigest(this.value)">
+    <option value="latest">Aktuell</option>
+  </select>
+</div>
+
+<!-- Hauptinhalt -->
+<div id="main">
+  <div id="loading"><div class="spinner"></div>Lade Digest…</div>
+  <div id="error-box"></div>
+  <div id="empty-box">Noch keine Ausgabe vorhanden.</div>
+  <div id="digest-meta"></div>
+
+  <div id="section-ki_tech"   class="digest-section active"></div>
+  <div id="section-finanzen"  class="digest-section"></div>
+  <div id="section-automobil" class="digest-section"></div>
+  <div id="section-lokal"     class="digest-section"></div>
+</div>
+
+<!-- Scroll-to-Top -->
+<button class="back-top" id="back-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- ─── INFO-OVERLAY ─── -->
+<div id="info-overlay" class="overlay" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <strong>Info</strong>
+      <button class="btn-close" onclick="document.getElementById('info-overlay').classList.remove('show')">Schließen</button>
+    </div>
+    <div class="sheet-body">
+      <div class="info-row">
+        <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8V6Z"/></svg></span>
+        <p><strong>Newsletter Digest</strong> – Tägliche KI-generierte Zusammenfassungen deiner Newsletter in vier Kategorien: KI &amp; Tech, Finanzen, Automobil und Lokales.</p>
+      </div>
+      <div class="info-row">
+        <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        <p>Die Zusammenfassungen werden automatisch erstellt – je nach Einstellung täglich, wöchentlich oder monatlich.</p>
+      </div>
+      <div class="info-row">
+        <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+        <p>Lokale Nachrichten: <strong>Bayerbach, Hölskofen, Oberköllnbach und Paindlkofen</strong> (Niederbayern).</p>
+      </div>
+      <div class="info-row">
+        <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+        <p>Über <strong>Einstellungen</strong> kannst du den Zeitplan, die Archiv-Tiefe, die Anzahl Bullet Points sowie das Absender-Mapping verwalten.</p>
+      </div>
+      <p class="info-version">Newsletter Digest v1.0 · 2026-06-27</p>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SETTINGS-OVERLAY ─── -->
+<div id="settings-overlay" class="overlay" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <strong>Einstellungen</strong>
+      <button class="btn-close" onclick="document.getElementById('settings-overlay').classList.remove('show')">Schließen</button>
+    </div>
+    <div class="sheet-body">
+
+      <!-- Admin-Token -->
+      <div class="settings-group">
+        <span class="settings-label">Admin-Token (einmalig eingeben)</span>
+        <div class="token-row">
+          <input type="password" id="s-token" class="settings-input" placeholder="Bearer-Token für Änderungen">
+          <button class="btn-token" onclick="saveToken()">Speichern</button>
+        </div>
+        <div id="token-status" style="font-size:12px;color:var(--muted);margin-top:4px;"></div>
+      </div>
+
+      <!-- Zeitplan -->
+      <div class="settings-group">
+        <span class="settings-label">Zeitplan</span>
+        <select id="s-type" class="settings-select" onchange="onScheduleTypeChange()">
+          <option value="daily">Täglich</option>
+          <option value="weekly" selected>Wöchentlich</option>
+          <option value="monthly">Monatlich</option>
+        </select>
+        <div id="s-weekly-opts" class="settings-row">
+          <select id="s-weekday" class="settings-select">
+            <option value="monday">Montag</option>
+            <option value="tuesday">Dienstag</option>
+            <option value="wednesday">Mittwoch</option>
+            <option value="thursday">Donnerstag</option>
+            <option value="friday">Freitag</option>
+            <option value="saturday">Samstag</option>
+            <option value="sunday" selected>Sonntag</option>
+          </select>
+        </div>
+        <div id="s-monthly-opts" class="settings-row" style="display:none">
+          <select id="s-week" class="settings-select">
+            <option value="1">1. Woche</option>
+            <option value="2">2. Woche</option>
+            <option value="3">3. Woche</option>
+            <option value="4">4. Woche</option>
+          </select>
+          <select id="s-mweekday" class="settings-select">
+            <option value="monday">Montag</option>
+            <option value="tuesday">Dienstag</option>
+            <option value="wednesday">Mittwoch</option>
+            <option value="thursday">Donnerstag</option>
+            <option value="friday" selected>Freitag</option>
+            <option value="saturday">Samstag</option>
+            <option value="sunday">Sonntag</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Archiv-Tiefe -->
+      <div class="settings-group">
+        <span class="settings-label">Ausgaben im Archiv</span>
+        <select id="s-archive" class="settings-select">
+          <option value="5">5</option>
+          <option value="10" selected>10</option>
+          <option value="15">15</option>
+          <option value="30">30</option>
+        </select>
+      </div>
+
+      <!-- Bullet Points -->
+      <div class="settings-group">
+        <span class="settings-label">Bullet Points pro Kategorie</span>
+        <select id="s-bullets" class="settings-select">
+          <option value="5">5</option>
+          <option value="7">7</option>
+          <option value="10" selected>10</option>
+          <option value="15">15</option>
+        </select>
+      </div>
+
+      <!-- Absender-Mapping -->
+      <div class="settings-group">
+        <span class="settings-label">Absender → Kategorie</span>
+        <div id="sender-list" class="sender-list"></div>
+        <div class="add-sender-row">
+          <input type="email" id="s-new-email" class="settings-input" placeholder="absender@domain.com">
+          <select id="s-new-cat" class="settings-select">
+            <option value="ki_tech">KI &amp; Tech</option>
+            <option value="finanzen">Finanzen</option>
+            <option value="automobil">Automobil</option>
+            <option value="lokal">Lokal</option>
+          </select>
+          <button class="btn-add" onclick="addSender()">+</button>
+        </div>
+      </div>
+
+      <button class="btn-save" onclick="saveSettings()">Speichern</button>
+      <div id="settings-status" style="font-size:13px;color:var(--muted);text-align:center;margin-top:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/newsletter';
+const CATS = {ki_tech:'KI & Tech', finanzen:'Finanzen', automobil:'Automobil', lokal:'Lokal'};
+let currentCat = 'ki_tech';
+let currentDigest = null;
+
+// ─── Init ─────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadDigestList();
+  loadDigest('latest');
+});
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/newsletter/sw.js', {scope: '/newsletter/'})
+    .catch(e => console.warn('[sw]', e));
+}
+
+// ─── Pull-to-Refresh ──────────────────────────────────────────────────────
+
+const ptrEl = document.getElementById('ptr');
+let ptrStartY = 0, ptrActive = false;
+document.addEventListener('touchstart', e => {
+  if (window.scrollY === 0) { ptrStartY = e.touches[0].clientY; ptrActive = true; }
+}, {passive: true});
+document.addEventListener('touchmove', e => {
+  if (!ptrActive) return;
+  if (e.touches[0].clientY - ptrStartY > 50) ptrEl.classList.add('show');
+}, {passive: true});
+document.addEventListener('touchend', e => {
+  if (!ptrActive) return;
+  if (e.changedTouches[0].clientY - ptrStartY > 80) {
+    loadDigestList();
+    loadDigest(document.getElementById('archive-select').value || 'latest');
+  }
+  ptrEl.classList.remove('show');
+  ptrActive = false;
+}, {passive: true});
+
+// ─── Scroll-to-Top ────────────────────────────────────────────────────────
+
+window.addEventListener('scroll', () => {
+  document.getElementById('back-top').classList.toggle('vis', window.scrollY > 300);
+});
+
+// ─── Tabs ─────────────────────────────────────────────────────────────────
+
+function switchTab(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.digest-section').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  currentCat = btn.dataset.cat;
+  document.getElementById(`section-${currentCat}`).classList.add('active');
+  window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// ─── Archiv-Liste laden ───────────────────────────────────────────────────
+
+async function loadDigestList() {
+  try {
+    const r = await fetch(`${API}/api/digest/list`);
+    const dates = await r.json();
+    const sel = document.getElementById('archive-select');
+    sel.innerHTML = '<option value="latest">Aktuell</option>';
+    dates.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = formatDate(d);
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    console.error('Archiv-Liste:', e);
+  }
+}
+
+// ─── Digest laden ─────────────────────────────────────────────────────────
+
+async function loadDigest(key) {
+  const url = key === 'latest' ? `${API}/api/digest/latest` : `${API}/api/digest/${key}`;
+  showLoading();
+  try {
+    const r = await fetch(url);
+    if (r.status === 404) { showEmpty(); return; }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    currentDigest = data;
+    renderDigest(data);
+  } catch (e) {
+    showError('Fehler beim Laden: ' + e.message);
+  }
+}
+
+function showLoading() {
+  document.getElementById('loading').className = 'show';
+  document.getElementById('error-box').className = '';
+  document.getElementById('empty-box').className = '';
+  document.getElementById('digest-meta').className = '';
+  document.querySelectorAll('.digest-section').forEach(s => s.innerHTML = '');
+}
+function showEmpty() {
+  document.getElementById('loading').className = '';
+  document.getElementById('empty-box').className = 'show';
+}
+function showError(msg) {
+  document.getElementById('loading').className = '';
+  const el = document.getElementById('error-box');
+  el.textContent = msg;
+  el.className = 'show';
+}
+
+// ─── Digest rendern ───────────────────────────────────────────────────────
+
+function renderDigest(data) {
+  document.getElementById('loading').className = '';
+
+  const metaEl = document.getElementById('digest-meta');
+  const d = new Date(data.date + 'T00:00:00');
+  document.getElementById('header-date').textContent = formatDate(data.date);
+  metaEl.textContent = `Erstellt: ${new Date(data.generated_at).toLocaleString('de-DE')} · ${data.mail_count} Mails`;
+  metaEl.className = 'show';
+
+  const cats = data.categories || {};
+  Object.keys(CATS).forEach(cat => {
+    const sec = document.getElementById(`section-${cat}`);
+    if (cats[cat]) {
+      sec.innerHTML = parseDigestText(cats[cat]);
+    } else {
+      sec.innerHTML = `<div class="no-cat">Keine Inhalte für <strong>${CATS[cat]}</strong> in dieser Ausgabe.</div>`;
+    }
+  });
+}
+
+function parseDigestText(text) {
+  const lines = text.split('\n');
+  let html = '';
+  let relevanz = '';
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // "Relevanz heute:" Zeile
+    if (/^_?relevanz heute:/i.test(trimmed)) {
+      relevanz = trimmed.replace(/^_/, '').replace(/_$/, '').replace(/^\*\*/, '').replace(/\*\*$/, '');
+      continue;
+    }
+
+    // Bullet mit **Titel** – Erklärung
+    const bold = trimmed.replace(/^[-*]\s*/, '');
+    const match = bold.match(/^\*\*(.+?)\*\*\s*[–-]\s*([\s\S]+)/);
+    if (match) {
+      html += `<div class="digest-item">
+        <div class="digest-item-title">${esc(match[1])}</div>
+        <div class="digest-item-body">${esc(match[2].trim())}</div>
+      </div>`;
+      continue;
+    }
+
+    // Nur **Titel** ohne Bindestrich
+    const boldOnly = bold.match(/^\*\*(.+?)\*\*\s*([\s\S]*)/);
+    if (boldOnly) {
+      html += `<div class="digest-item">
+        <div class="digest-item-title">${esc(boldOnly[1])}</div>
+        ${boldOnly[2].trim() ? `<div class="digest-item-body">${esc(boldOnly[2].trim())}</div>` : ''}
+      </div>`;
+      continue;
+    }
+
+    // Sonstige Zeile als Body-Text
+    if (html) {
+      html += `<div class="digest-item"><div class="digest-item-body">${esc(trimmed)}</div></div>`;
+    }
+  }
+
+  if (relevanz) {
+    html += `<div class="digest-relevanz">${esc(relevanz)}</div>`;
+  }
+
+  return html || `<div class="no-cat">Inhalt konnte nicht geparst werden.</div>`;
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function formatDate(d) {
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('de-DE', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────
+
+function openSettings() {
+  loadSettingsFromAPI();
+  // Token aus localStorage
+  const token = localStorage.getItem('nd_token') || '';
+  document.getElementById('s-token').value = token;
+  document.getElementById('token-status').textContent = token ? '✓ Token gespeichert' : '';
+  document.getElementById('settings-overlay').classList.add('show');
+}
+
+function saveToken() {
+  const val = document.getElementById('s-token').value.trim();
+  localStorage.setItem('nd_token', val);
+  document.getElementById('token-status').textContent = val ? '✓ Token gespeichert' : 'Token gelöscht';
+}
+
+function onScheduleTypeChange() {
+  const type = document.getElementById('s-type').value;
+  document.getElementById('s-weekly-opts').style.display  = type === 'weekly'  ? '' : 'none';
+  document.getElementById('s-monthly-opts').style.display = type === 'monthly' ? '' : 'none';
+}
+
+async function loadSettingsFromAPI() {
+  try {
+    const r = await fetch(`${API}/api/config`);
+    const cfg = await r.json();
+    applyConfigToUI(cfg);
+  } catch (e) {
+    console.error('Config laden:', e);
+  }
+}
+
+function applyConfigToUI(cfg) {
+  const sched = cfg.schedule || {};
+  document.getElementById('s-type').value    = sched.type    || 'weekly';
+  document.getElementById('s-weekday').value = sched.weekday || 'sunday';
+  document.getElementById('s-week').value    = sched.week    || '1';
+  document.getElementById('s-mweekday').value = sched.weekday || 'friday';
+  document.getElementById('s-archive').value = String(cfg.max_archive || 10);
+  document.getElementById('s-bullets').value = String(cfg.bullet_points || 10);
+  onScheduleTypeChange();
+  renderSenderList(cfg.senders || {});
+}
+
+function renderSenderList(senders) {
+  const list = document.getElementById('sender-list');
+  list.innerHTML = Object.entries(senders).map(([email, cat]) => `
+    <div class="sender-row">
+      <span class="sender-email" title="${esc(email)}">${esc(email)}</span>
+      <span class="sender-cat">${esc(CATS[cat] || cat)}</span>
+      <button class="btn-del" onclick="deleteSender('${esc(email)}')" title="Entfernen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+      </button>
+    </div>
+  `).join('') || '<p style="font-size:13px;color:var(--muted);padding:8px 0">Noch keine Absender konfiguriert.</p>';
+  list._senders = {...senders};
+}
+
+function deleteSender(email) {
+  const list = document.getElementById('sender-list');
+  const senders = {...(list._senders || {})};
+  delete senders[email];
+  renderSenderList(senders);
+}
+
+function addSender() {
+  const email = document.getElementById('s-new-email').value.trim().toLowerCase();
+  const cat   = document.getElementById('s-new-cat').value;
+  if (!email || !email.includes('@')) return;
+  const list = document.getElementById('sender-list');
+  const senders = {...(list._senders || {}), [email]: cat};
+  renderSenderList(senders);
+  document.getElementById('s-new-email').value = '';
+}
+
+async function saveSettings() {
+  const token = localStorage.getItem('nd_token') || '';
+  if (!token) {
+    document.getElementById('settings-status').textContent = '⚠️ Kein Token gespeichert – bitte oben eingeben.';
+    return;
+  }
+
+  const type = document.getElementById('s-type').value;
+  const schedule = {type};
+  if (type === 'weekly') {
+    schedule.weekday = document.getElementById('s-weekday').value;
+  } else if (type === 'monthly') {
+    schedule.weekday = document.getElementById('s-mweekday').value;
+    schedule.week    = Number(document.getElementById('s-week').value);
+  }
+
+  const senders = document.getElementById('sender-list')._senders || {};
+
+  const cfg = {
+    schedule,
+    max_archive:   Number(document.getElementById('s-archive').value),
+    bullet_points: Number(document.getElementById('s-bullets').value),
+    senders,
+  };
+
+  try {
+    const r = await fetch(`${API}/api/config`, {
+      method: 'POST',
+      headers: {'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json'},
+      body: JSON.stringify(cfg),
+    });
+    if (r.status === 401) { document.getElementById('settings-status').textContent = '⚠️ Token ungültig.'; return; }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    document.getElementById('settings-status').textContent = '✓ Gespeichert';
+    setTimeout(() => { document.getElementById('settings-status').textContent = ''; }, 2500);
+  } catch (e) {
+    document.getElementById('settings-status').textContent = 'Fehler: ' + e.message;
+  }
+}
+</script>
+</body>
+</html>
