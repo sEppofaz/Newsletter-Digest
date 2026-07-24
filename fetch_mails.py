@@ -267,7 +267,7 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
             for mid in processed_ids:
                 try:
                     imap.store(mid, "+FLAGS", "\\Seen")
-                    imap.copy(mid, "[Gmail]/All Mail")
+                    imap.copy(mid, '"[Google Mail]/Alle Nachrichten"')
                     imap.store(mid, "+FLAGS", "\\Deleted")
                 except Exception as e:
                     log.warning("Fehler beim Archivieren von Mail %s: %s", mid, e)
@@ -286,7 +286,7 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
 
 
 def fetch_from_all_mail(days: int, sender_mapping: dict, valid_categories: set[str], cat_prompt: str) -> list:
-    """Einmaliger Nachhol-Lauf: durchsucht [Gmail]/All Mail (nicht INBOX) rein lesend,
+    """Einmaliger Nachhol-Lauf: durchsucht "Alle Nachrichten" (nicht INBOX) rein lesend,
     da ältere Mails ggf. schon archiviert wurden. Ändert keine IMAP-Flags."""
     mails = []
     hard_kill_triggered = False
@@ -386,7 +386,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--catchup-days", type=int, default=None,
-        help="Einmaliger Nachhol-Lauf: durchsucht [Gmail]/All Mail (rein lesend) statt INBOX, "
+        help="Einmaliger Nachhol-Lauf: durchsucht 'Alle Nachrichten' (rein lesend) statt INBOX, "
              "N Tage zurück, umgeht should_run()",
     )
     args = parser.parse_args()
@@ -396,7 +396,7 @@ def main():
     if args.catchup_days is None and not should_run():
         sys.exit(0)
     elif args.catchup_days is not None:
-        log.info("Nachhol-Modus aktiv: %d Tage zurück, [Gmail]/All Mail", args.catchup_days)
+        log.info("Nachhol-Modus aktiv: %d Tage zurück, 'Alle Nachrichten'", args.catchup_days)
 
     if not GMAIL_PASSWORD:
         log.error("GMAIL_APP_PASSWORD nicht gesetzt")
