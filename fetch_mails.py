@@ -29,15 +29,33 @@ IMAP_PORT             = 993
 LOOKBACK_HOURS        = 25
 
 
+def _split_telegram_message(text: str, limit: int = 4096) -> list[str]:
+    if len(text) <= limit:
+        return [text]
+    parts = []
+    while text:
+        if len(text) <= limit:
+            parts.append(text)
+            break
+        cut = text.rfind("\n", 0, limit)
+        if cut <= 0:
+            cut = limit
+        parts.append(text[:cut])
+        text = text[cut:].lstrip("\n")
+    return parts
+
+
 def notify_telegram(msg: str):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
+    full_text = f"⚠️ [Newsletter-Fetch]\n{msg}"
     try:
-        requests.post(
-            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-            json={"chat_id": TELEGRAM_CHAT_ID, "text": f"⚠️ [Newsletter-Fetch]\n{msg}"},
-            timeout=10,
-        )
+        for part in _split_telegram_message(full_text):
+            requests.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+                json={"chat_id": TELEGRAM_CHAT_ID, "text": part},
+                timeout=10,
+            )
     except Exception:
         pass
 
