@@ -6,6 +6,8 @@ from pathlib import Path
 from dotenv import dotenv_values
 import requests
 
+import costs
+
 _env = dotenv_values(Path(__file__).parent / ".env")
 
 logging.basicConfig(
@@ -100,7 +102,7 @@ def build_category_prompt(cfg: dict) -> str:
 
 def auto_categorize(from_addr: str, subject: str, body: str,
                     valid_categories: set[str], cat_prompt: str,
-                    model: str | None = None) -> str | None:
+                    model: str | None = None) -> tuple[str | None, bool]:
     if model is None:
         model = CLAUDE_MODEL
 
@@ -134,19 +136,31 @@ def auto_categorize(from_addr: str, subject: str, body: str,
                 log.warning("Modell '%s' ungültig, Fallback auf '%s'", model, CLAUDE_MODEL_FALLBACK)
                 return auto_categorize(from_addr, subject, body, valid_categories, cat_prompt,
                                        model=CLAUDE_MODEL_FALLBACK)
-            return None
+            return None, False
 
         resp.raise_for_status()
-        cat = resp.json()["content"][0]["text"].strip().lower().split()[0]
+        resp_json = resp.json()
+        usage = resp_json.get("usage", {})
+        result = costs.record_call(
+            model, usage.get("input_tokens", 0), usage.get("output_tokens", 0),
+            context="auto_categorize",
+        )
+        if result["warn_1usd"]:
+            notify_telegram(
+                f"1$ Tagesverbrauch erreicht (heute: ${result['day_total_usd']:.2f}).\n"
+                f"Verarbeitung läuft normal weiter, keine Aktion nötig."
+            )
+
+        cat = resp_json["content"][0]["text"].strip().lower().split()[0]
         if cat in valid_categories:
             log.info("Auto-Kategorie für %s: %s", from_addr, cat)
-            return cat
+            return cat, result["hard_kill"]
         log.info("Keine passende Kategorie für %s (%s) – übersprungen", from_addr, cat)
-        return None
+        return None, result["hard_kill"]
 
     except Exception as e:
         log.warning("Auto-Kategorisierung fehlgeschlagen für %s: %s", from_addr, e)
-        return None
+        return None, False
 
 
 def decode_str(value) -> str:
@@ -192,6 +206,7 @@ def extract_body(msg) -> str:
 def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: str) -> list:
     mails = []
     processed_ids = []
+    hard_kill_triggered = False
     try:
         log.info("Verbinde mit Gmail IMAP…")
         imap = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT)
@@ -222,8 +237,19 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
 
             category = sender_mapping.get(from_addr)
             if not category:
+                if hard_kill_triggered:
+                    log.info("Kosten-Hard-Kill aktiv – Auto-Kategorisierung übersprungen für %s", from_addr)
+                    continue
                 log.info("Absender unbekannt, Auto-Kategorisierung: %s", from_addr)
-                category = auto_categorize(from_addr, subject, body, valid_categories, cat_prompt)
+                category, hard_kill = auto_categorize(from_addr, subject, body, valid_categories, cat_prompt)
+                if hard_kill and not hard_kill_triggered:
+                    hard_kill_triggered = True
+                    notify_telegram(
+                        "5$ Tagesverbrauch erreicht – automatische Kategorisierung für weitere "
+                        "unbekannte Absender in diesem Lauf übersprungen.\n"
+                        "Bereits verarbeitete Mails bleiben erhalten, übrige unbekannte Absender "
+                        "werden im nächsten stündlichen Lauf erneut versucht."
+                    )
                 if not category:
                     continue
 

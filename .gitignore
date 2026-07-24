@@ -4,3 +4,4 @@ __pycache__/
 data/
 icons/
 venv/
+claude_costs.json

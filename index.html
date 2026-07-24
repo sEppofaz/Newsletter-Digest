@@ -56,12 +56,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 #header-date { color: rgba(255,255,255,.65); font-size: 13px; margin-top: 1px; }
 #header-left { display: flex; flex-direction: column; }
 #header-right { display: flex; gap: 8px; align-items: center; }
-#btn-settings, #btn-info {
+#btn-settings, #btn-info, #btn-costs {
   background: rgba(255,255,255,.15); border: none; color: #fff;
   height: 34px; padding: 0 12px; border-radius: 9px;
   font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s;
 }
-#btn-settings:active, #btn-info:active { background: rgba(255,255,255,.3); }
+#btn-settings:active, #btn-info:active, #btn-costs:active { background: rgba(255,255,255,.3); }
 
 /* ─── PULL-TO-REFRESH ─── */
 #ptr {
@@ -207,6 +207,22 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .btn-del-cat { margin-top: 12px; background: none; border: 1px solid var(--red); color: var(--red); border-radius: 10px; padding: 8px 14px; font-size: 13px; cursor: pointer; width: 100%; }
 .btn-add-cat { width: 100%; padding: 10px; background: none; border: 2px dashed var(--border); color: var(--muted); border-radius: 12px; font-size: 14px; cursor: pointer; margin-top: 4px; }
 .btn-add-cat:active { border-color: var(--accent); color: var(--accent); }
+
+/* ─── KOSTEN ─── */
+.costs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
+.costs-kpi { background: var(--bg); border-radius: 12px; padding: 12px 14px; }
+.costs-kpi-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px; }
+.costs-kpi-value { font-size: 20px; font-weight: 700; }
+.costs-track { height: 8px; border-radius: 4px; background: var(--bg3); overflow: hidden; margin: 6px 0 4px; }
+.costs-fill { height: 100%; background: var(--accent); transition: width .3s; }
+.costs-fill.warn { background: #ff9500; }
+.costs-fill.danger { background: var(--red); }
+.costs-threshold-label { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+.costs-call-item { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.costs-call-ctx { color: var(--text2); }
+.costs-call-meta { color: var(--muted); font-size: 11px; }
+.costs-call-cost { font-weight: 600; flex-shrink: 0; }
+.costs-empty { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -219,6 +235,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <span id="header-date"></span>
   </div>
   <div id="header-right">
+    <button id="btn-costs" onclick="openCosts()">Kosten</button>
     <button id="btn-settings" onclick="openSettings()">Einstellungen</button>
     <button id="btn-info" onclick="document.getElementById('info-overlay').classList.add('show')">Info</button>
   </div>
@@ -267,7 +284,43 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
         <p>Ausgelesenes Postfach: <strong>josef.jf.fischer@gmail.com</strong> (Gmail IMAP).</p>
       </div>
-      <p class="info-version">Newsletter Digest v2.1 · 2026-07-24</p>
+      <p class="info-version">Newsletter Digest v2.2 · 2026-07-24</p>
+    </div>
+  </div>
+</div>
+
+<!-- KOSTEN-OVERLAY -->
+<div id="costs-overlay" class="overlay" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="sheet">
+    <div class="sheet-hd">
+      <strong>Kosten (Claude API)</strong>
+      <button class="btn-close" onclick="document.getElementById('costs-overlay').classList.remove('show')">Schließen</button>
+    </div>
+    <div class="sheet-body">
+      <div class="costs-track"><div class="costs-fill" id="costs-today-fill"></div></div>
+      <div class="costs-threshold-label" id="costs-today-label">Heute: $0.00 von $5.00 (Tages-Limit)</div>
+
+      <div class="costs-grid">
+        <div class="costs-kpi">
+          <div class="costs-kpi-label">Diese Woche</div>
+          <div class="costs-kpi-value" id="costs-week">$0.00</div>
+        </div>
+        <div class="costs-kpi">
+          <div class="costs-kpi-label">Dieser Monat</div>
+          <div class="costs-kpi-value" id="costs-month">$0.00</div>
+        </div>
+        <div class="costs-kpi">
+          <div class="costs-kpi-label">Dieses Jahr</div>
+          <div class="costs-kpi-value" id="costs-year">$0.00</div>
+        </div>
+        <div class="costs-kpi">
+          <div class="costs-kpi-label">Gesamt (Lifetime)</div>
+          <div class="costs-kpi-value" id="costs-total">$0.00</div>
+        </div>
+      </div>
+
+      <div class="settings-label">Letzte Calls</div>
+      <div id="costs-call-list"></div>
     </div>
   </div>
 </div>
@@ -568,6 +621,47 @@ function formatDate(d) {
 }
 
 // ─── Settings öffnen ──────────────────────────────────────────────────────
+
+async function openCosts() {
+  document.getElementById('costs-overlay').classList.add('show');
+  try {
+    const r = await fetch(`${API}/api/costs`);
+    renderCosts(await r.json());
+  } catch (e) {
+    document.getElementById('costs-call-list').innerHTML = '<div class="costs-empty">Kosten konnten nicht geladen werden.</div>';
+  }
+}
+
+function renderCosts(data) {
+  const todayUsd = (data.today && data.today.cost_usd) || 0;
+  const pct = Math.min(100, Math.round((todayUsd / 5.0) * 100));
+  const fill = document.getElementById('costs-today-fill');
+  fill.style.width = pct + '%';
+  fill.className = 'costs-fill' + (todayUsd >= 5 ? ' danger' : todayUsd >= 1 ? ' warn' : '');
+  document.getElementById('costs-today-label').textContent =
+    `Heute: $${todayUsd.toFixed(2)} von $5.00 (Tages-Limit)`;
+
+  document.getElementById('costs-week').textContent  = `$${(data.week?.cost_usd || 0).toFixed(2)}`;
+  document.getElementById('costs-month').textContent = `$${(data.month?.cost_usd || 0).toFixed(2)}`;
+  document.getElementById('costs-year').textContent  = `$${(data.year?.cost_usd || 0).toFixed(2)}`;
+  document.getElementById('costs-total').textContent = `$${(data.total_cost_usd || 0).toFixed(2)}`;
+
+  const list = document.getElementById('costs-call-list');
+  const calls = data.recent_calls || [];
+  if (!calls.length) {
+    list.innerHTML = '<div class="costs-empty">Noch keine Calls erfasst.</div>';
+    return;
+  }
+  list.innerHTML = calls.map(c => `
+    <div class="costs-call-item">
+      <div>
+        <div class="costs-call-ctx">${c.context}</div>
+        <div class="costs-call-meta">${c.ts} · ${c.input_tokens}+${c.output_tokens} Tokens</div>
+      </div>
+      <div class="costs-call-cost">$${c.cost_usd.toFixed(4)}</div>
+    </div>
+  `).join('');
+}
 
 async function openSettings() {
   _cfg = await fetchConfig();

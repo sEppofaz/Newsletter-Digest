@@ -6,6 +6,8 @@ from flask import Flask, jsonify, request, send_file, abort
 from dotenv import dotenv_values
 import requests as http_client
 
+import costs
+
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -129,7 +131,7 @@ def cleanup_old_digests(max_keep: int):
 
 # ─── Claude-Integration ──────────────────────────────────────────────────────
 
-def call_claude(cat_cfg: dict, mails: list, model: str | None = None) -> str | None:
+def call_claude(cat_cfg: dict, mails: list, model: str | None = None) -> tuple[str | None, dict | None]:
     """cat_cfg: ein Eintrag aus config.json categories (id, name, bullet_points, context)"""
     if model is None:
         model = CLAUDE_MODEL
@@ -191,16 +193,23 @@ def call_claude(cat_cfg: dict, mails: list, model: str | None = None) -> str | N
                 return call_claude(cat_cfg, mails, model=CLAUDE_MODEL_FALLBACK)
             else:
                 telegram_alert(f"Fallback-Modell '{CLAUDE_MODEL_FALLBACK}' ebenfalls ungültig!")
-                return None
+                return None, None
 
         resp.raise_for_status()
-        return resp.json()["content"][0]["text"]
+        resp_json = resp.json()
+        usage = resp_json.get("usage", {})
+        usage_info = {
+            "model": model,
+            "input_tokens": usage.get("input_tokens", 0),
+            "output_tokens": usage.get("output_tokens", 0),
+        }
+        return resp_json["content"][0]["text"], usage_info
 
     except Exception as e:
         err = f"Claude-API-Fehler (Kategorie {cat_id}): {e}"
         log.error(err)
         telegram_alert(err)
-        return None
+        return None, None
 
 
 # ─── Icon-Generierung ────────────────────────────────────────────────────────
@@ -303,6 +312,11 @@ def api_config_post():
     return jsonify({"ok": True})
 
 
+@app.route("/api/costs")
+def api_costs():
+    return jsonify(costs.load_costs_summary())
+
+
 @app.route("/api/process", methods=["POST"])
 @require_bearer
 def api_process():
@@ -323,15 +337,38 @@ def api_process():
     cat_map = {c["id"]: c for c in active_cats}
 
     categories_result = {}
-    for cat_id, cat_mails in by_cat.items():
+    skipped_categories = []
+    cat_ids = list(by_cat.keys())
+    for i, cat_id in enumerate(cat_ids):
+        cat_mails = by_cat[cat_id]
         cat_cfg = cat_map.get(cat_id)
         if cat_cfg is None:
             log.warning("Kategorie '%s' nicht in aktiver Config – übersprungen", cat_id)
             continue
         log.info("Verarbeite Kategorie '%s' (%d Mails)", cat_id, len(cat_mails))
-        summary = call_claude(cat_cfg, cat_mails)
+        summary, usage_info = call_claude(cat_cfg, cat_mails)
         if summary:
             categories_result[cat_id] = summary
+
+        if usage_info:
+            result = costs.record_call(
+                usage_info["model"], usage_info["input_tokens"], usage_info["output_tokens"],
+                context=f"category:{cat_id}",
+            )
+            if result["warn_1usd"]:
+                telegram_alert(
+                    f"1$ Tagesverbrauch erreicht (heute: ${result['day_total_usd']:.2f}).\n"
+                    f"Verarbeitung läuft normal weiter, keine Aktion nötig."
+                )
+            if result["hard_kill"]:
+                skipped_categories = cat_ids[i + 1:]
+                telegram_alert(
+                    f"5$ Tagesverbrauch erreicht (heute: ${result['day_total_usd']:.2f}) – "
+                    f"Verarbeitung selbstständig abgebrochen.\n"
+                    f"Übersprungen: {', '.join(skipped_categories) if skipped_categories else '(keine weiteren)'}.\n"
+                    f"Bereits fertige Kategorien wurden im Digest gespeichert."
+                )
+                break
 
     if not categories_result:
         telegram_alert(f"Digest {date_str}: Keine Zusammenfassungen generiert – alle Kategorien fehlgeschlagen.")
