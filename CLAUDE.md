@@ -94,6 +94,8 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 - config.json auf Server kann durch PWA geändert werden – bei git pull Konflikt: `git stash && git pull && git stash drop`
 - `call_claude()` erwartet `cat_cfg`-Dict (nicht category-String + bullet_points-Int)
 - Nach git pull als root: `chown webhook:webhook /opt/newsletter-digest/config.json` – sonst 500 beim Einstellungen speichern (PermissionError)
+- Nach dem Digest-Lauf werden erfolgreich kategorisierte Mails automatisch als gelesen markiert und in `[Gmail]/All Mail` archiviert (aus INBOX entfernt). Unkategorisierte Mails bleiben im INBOX
+- **Server-Drift-Warnung:** Diese Archivierungsfunktion in `fetch_mails.py` wurde am 2026-06-29 direkt auf dem Server implementiert und erst am 2026-07-24 (bei einem `git pull`-Konflikt) ins Repo zurückgeholt – bis dahin unsynchronisiert. Vor jedem Deploy prüfen (`ssh ... "cd /opt/newsletter-digest && git status"`), ob der Server unerwartete lokale Änderungen an `.py`-Dateien hat (nicht nur `config.json`, das ist normal) – sonst droht stillschweigender Feature-Verlust beim Überschreiben
 
 ## Aktueller Stand
 [x] GitHub-Repo angelegt (sEppofaz/Newsletter-Digest)

@@ -173,6 +173,7 @@ def extract_body(msg) -> str:
 
 def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: str) -> list:
     mails = []
+    processed_ids = []
     try:
         log.info("Verbinde mit Gmail IMAP…")
         imap = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT)
@@ -214,7 +215,20 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
                 "body":     body,
                 "category": category,
             })
+            processed_ids.append(mid)
             log.info("Mail übernommen: [%s] %s", category, subject[:60])
+
+        if processed_ids:
+            log.info("%d Mails werden als gelesen markiert und archiviert…", len(processed_ids))
+            for mid in processed_ids:
+                try:
+                    imap.store(mid, "+FLAGS", "\\Seen")
+                    imap.copy(mid, "[Gmail]/All Mail")
+                    imap.store(mid, "+FLAGS", "\\Deleted")
+                except Exception as e:
+                    log.warning("Fehler beim Archivieren von Mail %s: %s", mid, e)
+            imap.expunge()
+            log.info("Archivierung abgeschlossen (%d Mails).", len(processed_ids))
 
         imap.logout()
     except imaplib.IMAP4.error as e:
