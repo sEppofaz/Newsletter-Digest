@@ -60,6 +60,9 @@ ssh root@89.167.104.145 "git -C /opt/newsletter-digest pull && chown webhook:web
 Flask macht den Claude-API-Call (zentrale Haiku-Modell-Validierung + Fallback).
 Bei ungültiger Modell-ID: automatischer Fallback + Telegram-Alert.
 
+## Telegram-Digest-Versand (seit 2026-07-24)
+Bei erfolgreichem Digest sendet `/api/process` (app.py) den **vollen Inhalt** aller Kategorien per Telegram (`telegram_digest()`, Präfix 📰, über dieselbe Split-Logik wie `telegram_alert()` – Warnungen bleiben mit ⚠️-Präfix getrennt). Ersetzt die ursprüngliche Entscheidung aus `ARCHITECTURE.md` ("nur Fehler-Alerts, kein Digest-Inhalt") – Josef wollte den Digest aktiv per Telegram statt nur in der PWA. Gilt für jeden erfolgreichen Lauf inkl. Nachhol-Digest (`--catchup-days`), da beide denselben `/api/process`-Pfad nutzen.
+
 ## SW-Cache-Name
 `newsletter-v1` – bei Icon/Manifest-Änderungen hochzählen → `newsletter-v2`
 

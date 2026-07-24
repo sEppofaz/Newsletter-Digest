@@ -57,11 +57,10 @@ def _split_telegram_message(text: str, limit: int = 4096) -> list[str]:
     return parts
 
 
-def telegram_alert(msg: str):
+def _send_telegram_raw(full_text: str):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        log.warning("Telegram nicht konfiguriert: %s", msg)
+        log.warning("Telegram nicht konfiguriert: %s", full_text)
         return
-    full_text = f"⚠️ [Newsletter-Digest]\n{msg}"
     try:
         for part in _split_telegram_message(full_text):
             http_client.post(
@@ -70,7 +69,15 @@ def telegram_alert(msg: str):
                 timeout=10,
             )
     except Exception as e:
-        log.error("Telegram-Alert fehlgeschlagen: %s", e)
+        log.error("Telegram-Versand fehlgeschlagen: %s", e)
+
+
+def telegram_alert(msg: str):
+    _send_telegram_raw(f"⚠️ [Newsletter-Digest]\n{msg}")
+
+
+def telegram_digest(msg: str):
+    _send_telegram_raw(f"📰 [Newsletter-Digest]\n{msg}")
 
 
 def load_config() -> dict:
@@ -386,6 +393,12 @@ def api_process():
     fname.write_text(json.dumps(digest, ensure_ascii=False, indent=2))
     log.info("Digest gespeichert: %s", fname.name)
     cleanup_old_digests(int(cfg.get("max_archive", 10)))
+
+    parts = [f"Ausgabe {date_str}"]
+    for cat_id, summary in categories_result.items():
+        cat_name = cat_map.get(cat_id, {}).get("name", cat_id)
+        parts.append(f"\n\n━━━ {cat_name} ━━━\n\n{summary}")
+    telegram_digest("".join(parts))
 
     return jsonify({"ok": True, "date": date_str, "categories": list(categories_result.keys())})
 
