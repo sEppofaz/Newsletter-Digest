@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import imaplib, email, sys, json, logging
+import argparse, imaplib, email, sys, json, logging
 from email.header import decode_header
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -285,6 +285,74 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
     return mails
 
 
+def fetch_from_all_mail(days: int, sender_mapping: dict, valid_categories: set[str], cat_prompt: str) -> list:
+    """Einmaliger Nachhol-Lauf: durchsucht [Gmail]/All Mail (nicht INBOX) rein lesend,
+    da ältere Mails ggf. schon archiviert wurden. Ändert keine IMAP-Flags."""
+    mails = []
+    hard_kill_triggered = False
+    try:
+        log.info("Verbinde mit Gmail IMAP (Nachhol-Modus, [Gmail]/All Mail)…")
+        imap = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT)
+        imap.login(GMAIL_USER, GMAIL_PASSWORD)
+        imap.select('"[Gmail]/All Mail"', readonly=True)
+
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%d-%b-%Y")
+        _, msg_ids = imap.search(None, f'(SINCE "{since}")')
+
+        ids = msg_ids[0].split() if msg_ids[0] else []
+        log.info("%d Mails seit %s in [Gmail]/All Mail gefunden", len(ids), since)
+
+        for mid in ids:
+            _, data = imap.fetch(mid, "(RFC822)")
+            if not data or not data[0]:
+                continue
+            raw = data[0][1]
+            msg = email.message_from_bytes(raw)
+
+            from_raw = decode_str(msg.get("From", ""))
+            if "<" in from_raw and ">" in from_raw:
+                from_addr = from_raw.split("<")[1].split(">")[0].strip().lower()
+            else:
+                from_addr = from_raw.strip().lower()
+
+            subject = decode_str(msg.get("Subject", "(kein Betreff)"))
+            body = extract_body(msg)
+
+            category = sender_mapping.get(from_addr)
+            if not category:
+                if hard_kill_triggered:
+                    log.info("Kosten-Hard-Kill aktiv – Auto-Kategorisierung übersprungen für %s", from_addr)
+                    continue
+                category, hard_kill = auto_categorize(from_addr, subject, body, valid_categories, cat_prompt)
+                if hard_kill and not hard_kill_triggered:
+                    hard_kill_triggered = True
+                    notify_telegram(
+                        "5$ Tagesverbrauch erreicht – Nachhol-Lauf: automatische Kategorisierung "
+                        "für weitere unbekannte Absender übersprungen. Bereits kategorisierte Mails "
+                        "bleiben im Nachhol-Digest erhalten."
+                    )
+                if not category:
+                    continue
+
+            mails.append({
+                "from":     from_addr,
+                "subject":  subject,
+                "body":     body,
+                "category": category,
+            })
+            log.info("Mail übernommen (Nachhol): [%s] %s", category, subject[:60])
+
+        imap.logout()
+    except imaplib.IMAP4.error as e:
+        log.error("IMAP-Fehler (Nachhol-Modus): %s", e)
+        notify_telegram(f"IMAP-Fehler beim Nachhol-Lauf: {e}")
+    except Exception as e:
+        log.error("Unerwarteter Fehler (Nachhol-Modus): %s", e)
+        notify_telegram(f"Unerwarteter Fehler beim Nachhol-Lauf: {e}")
+
+    return mails
+
+
 def process_mails(mails: list, date_str: str) -> bool:
     try:
         r = requests.post(
@@ -313,10 +381,20 @@ def process_mails(mails: list, date_str: str) -> bool:
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--catchup-days", type=int, default=None,
+        help="Einmaliger Nachhol-Lauf: durchsucht [Gmail]/All Mail (rein lesend) statt INBOX, "
+             "N Tage zurück, umgeht should_run()",
+    )
+    args = parser.parse_args()
+
     log.info("=== Newsletter Fetch gestartet ===")
 
-    if not should_run():
+    if args.catchup_days is None and not should_run():
         sys.exit(0)
+    elif args.catchup_days is not None:
+        log.info("Nachhol-Modus aktiv: %d Tage zurück, [Gmail]/All Mail", args.catchup_days)
 
     if not GMAIL_PASSWORD:
         log.error("GMAIL_APP_PASSWORD nicht gesetzt")
@@ -334,7 +412,10 @@ def main():
         sys.exit(1)
 
     date_str = datetime.now().strftime("%Y-%m-%d")
-    mails = fetch_mails(sender_mapping, valid_categories, cat_prompt)
+    if args.catchup_days is None:
+        mails = fetch_mails(sender_mapping, valid_categories, cat_prompt)
+    else:
+        mails = fetch_from_all_mail(args.catchup_days, sender_mapping, valid_categories, cat_prompt)
 
     if not mails:
         log.info("Keine passenden Mails gefunden – kein Digest erstellt.")
