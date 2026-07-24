@@ -83,6 +83,13 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 - `categories[].enabled: false` → Rubrik komplett überspringen
 - Timer läuft **stündlich**, fetch_mails.py prüft `should_run_today()` → vergleicht `now.hour == schedule.hour`
 
+## Kosten-Tracking (seit 2026-07-24)
+`costs.py` trackt jeden Claude-Call (Kategorie-Zusammenfassung in `app.py` + Auto-Kategorisierung in `fetch_mails.py`) in `claude_costs.json` (gitignored, USD, pro Call + Tag/Woche/Monat/Jahr). Session = ein Kalendertag.
+- **1$/Tag:** Telegram-Info, Verarbeitung läuft normal weiter.
+- **5$/Tag:** Selbstständiger Abbruch der restlichen Verarbeitung (verbleibende Kategorien/unbekannte Absender werden übersprungen, bereits Fertiges bleibt gespeichert). Kein Warten auf Bestätigung.
+- Sichtbar über `/api/costs` + Kosten-Overlay in der PWA (Header-Button neben Einstellungen).
+- Details: ADR-004, `PKA/BKM/Claude-API-Kosten-Tracking.md`.
+
 ## Pitfalls
 - **Gunicorn-Timeout:** `newsletter-digest.service` läuft mit `--timeout 120` (seit 2026-07-24, davor kein Flag = Gunicorn-Default 30s). Claude-Call in `call_claude()` erlaubt `timeout=90` – bei Gunicorn-Timeout < Requests-Timeout killt Gunicorn den Worker mitten in der Anfrage (`WORKER TIMEOUT`/`SIGABRT`) → 500 bei `/api/process`, fetch_mails.py meldet die leere Digest-Seite mit Warning. Bei künftigen Änderungen am `timeout=90` in `app.py` den Gunicorn-Wert in der `.service`-Datei entsprechend nachziehen (Gunicorn-Wert immer > Requests-Timeout)
 - `telegram_alert()`/`notify_telegram()` splitten Nachrichten >4096 Zeichen automatisch (siehe `PKA/BKM/Telegram-Integration.md`)
@@ -96,6 +103,7 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 - `call_claude()` erwartet `cat_cfg`-Dict (nicht category-String + bullet_points-Int)
 - Nach git pull als root: `chown webhook:webhook /opt/newsletter-digest/config.json` – sonst 500 beim Einstellungen speichern (PermissionError)
 - Nach dem Digest-Lauf werden erfolgreich kategorisierte Mails automatisch als gelesen markiert und in `[Gmail]/All Mail` archiviert (aus INBOX entfernt). Unkategorisierte Mails bleiben im INBOX
+- `costs.py`/`_load()`: bei bereits existierender `claude_costs.json` im Alt-Format immer `dict.update(raw)` auf einen Default-Dict, nie `return raw` direkt – sonst `KeyError` auf neue Keys (`calls`/`daily`), live gefunden beim Sentiment-Scanner-Rollout (2026-07-24)
 - **Server-Drift-Warnung:** Diese Archivierungsfunktion in `fetch_mails.py` wurde am 2026-06-29 direkt auf dem Server implementiert und erst am 2026-07-24 (bei einem `git pull`-Konflikt) ins Repo zurückgeholt – bis dahin unsynchronisiert. Vor jedem Deploy prüfen (`ssh ... "cd /opt/newsletter-digest && git status"`), ob der Server unerwartete lokale Änderungen an `.py`-Dateien hat (nicht nur `config.json`, das ist normal) – sonst droht stillschweigender Feature-Verlust beim Überschreiben
 
 ## Aktueller Stand
