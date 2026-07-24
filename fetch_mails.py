@@ -291,16 +291,18 @@ def fetch_from_all_mail(days: int, sender_mapping: dict, valid_categories: set[s
     mails = []
     hard_kill_triggered = False
     try:
-        log.info("Verbinde mit Gmail IMAP (Nachhol-Modus, [Gmail]/All Mail)…")
+        log.info("Verbinde mit Gmail IMAP (Nachhol-Modus, Alle Nachrichten)…")
         imap = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT)
         imap.login(GMAIL_USER, GMAIL_PASSWORD)
-        imap.select('"[Gmail]/All Mail"', readonly=True)
+        typ, _ = imap.select('"[Google Mail]/Alle Nachrichten"', readonly=True)
+        if typ != "OK":
+            raise imaplib.IMAP4.error(f"SELECT auf 'Alle Nachrichten' fehlgeschlagen: {typ}")
 
         since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%d-%b-%Y")
         _, msg_ids = imap.search(None, f'(SINCE "{since}")')
 
         ids = msg_ids[0].split() if msg_ids[0] else []
-        log.info("%d Mails seit %s in [Gmail]/All Mail gefunden", len(ids), since)
+        log.info("%d Mails seit %s in 'Alle Nachrichten' gefunden", len(ids), since)
 
         for mid in ids:
             _, data = imap.fetch(mid, "(RFC822)")
