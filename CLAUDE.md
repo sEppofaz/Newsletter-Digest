@@ -84,6 +84,7 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 - Timer läuft **stündlich**, fetch_mails.py prüft `should_run_today()` → vergleicht `now.hour == schedule.hour`
 
 ## Pitfalls
+- **Gunicorn-Timeout:** `newsletter-digest.service` läuft mit `--timeout 120` (seit 2026-07-24, davor kein Flag = Gunicorn-Default 30s). Claude-Call in `call_claude()` erlaubt `timeout=90` – bei Gunicorn-Timeout < Requests-Timeout killt Gunicorn den Worker mitten in der Anfrage (`WORKER TIMEOUT`/`SIGABRT`) → 500 bei `/api/process`, n8n zeigt leere Digest-Seite mit Warning. Bei künftigen Änderungen am `timeout=90` in `app.py` den Gunicorn-Wert in der `.service`-Datei entsprechend nachziehen (Gunicorn-Wert immer > Requests-Timeout)
 - Bearer-Token nie ins Repo – in `/opt/newsletter-digest/.env`
 - Icons-Ordner muss `webhook`-User gehören: `chown webhook:webhook /opt/newsletter-digest/icons`
 - nginx proxy_pass mit trailing slash: `/newsletter/` → `http://127.0.0.1:5006/` (Strip des Präfixes)
