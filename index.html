@@ -288,7 +288,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></span>
         <p>Jeder fertige Digest wird zusätzlich <strong>vollständig per Telegram</strong> verschickt – ältere Ausgaben über das Archiv-Dropdown oben.</p>
       </div>
-      <p class="info-version">Newsletter Digest v2.4 · 2026-07-24</p>
+      <p class="info-version">Newsletter Digest v2.5 · 2026-07-24</p>
     </div>
   </div>
 </div>
@@ -601,7 +601,7 @@ function parseDigestText(text) {
       relevanz = t.replace(/^_/, '').replace(/_$/, '');
       continue;
     }
-    const bold = t.replace(/^[-*]\s*/, '');
+    const bold = t.replace(/^[-*](?!\*)\s*/, '');
     const m = bold.match(/^\*\*(.+?)\*\*\s*[–-]\s*([\s\S]+)/);
     if (m) {
       html += `<div class="digest-item"><div class="digest-item-title">${esc(m[1])}</div><div class="digest-item-body">${esc(m[2].trim())}</div></div>`;
