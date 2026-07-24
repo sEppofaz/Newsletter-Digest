@@ -8,7 +8,7 @@ Kategorien: KI & Tech, Finanzen, Automobil, Lokal (Bayerbach/Hölskofen/Oberköl
 `https://umbenennen.duckdns.org/newsletter/`
 
 ## Architektur
-Siehe `ARCHITECTURE.md` (im selben Ordner)
+`ARCHITECTURE.md` (im selben Ordner) ist die ursprüngliche Planung – **veraltet**, sah n8n als Workflow-Engine vor. Tatsächlich umgesetzt: systemd-Timer statt n8n (siehe ADR-001). Aktueller Ablauf: Abschnitt „Fetch-Workflow" unten.
 
 ## Deployment
 ```bash
@@ -45,18 +45,18 @@ ssh root@89.167.104.145 "git -C /opt/newsletter-digest pull && chown webhook:web
 - Python 3.11, Flask, gunicorn
 - cairosvg für Icon-Generierung
 - Claude Haiku API (Modell: `claude-haiku-4-5-20251001`, Fallback hardcoded)
-- n8n für Workflow-Orchestrierung (bereits auf Server vorhanden)
+- systemd-Timer für Workflow-Orchestrierung (kein n8n – siehe ADR-001, n8n war nie auf dem Server installiert)
 - Gmail IMAP: `josef.jf.fischer@gmail.com`
 
-## n8n Workflow
-- Cron täglich 07:00
-- GET /api/should_run → falls false: stopp
+## Fetch-Workflow (fetch_mails.py + newsletter-fetch.timer)
+- `newsletter-fetch.timer` stündlich → `newsletter-fetch.service` (OneShot) startet `fetch_mails.py`
+- GET /api/should_run → falls false: sofortiger Abbruch
 - IMAP: ungelesene Mails seit 24h
-- Function Node: Absender → Kategorie (per GET /api/config)
-- POST /api/process (Bearer-Token) → Flask ruft Claude auf → Digest gespeichert
+- Absender → Kategorie: Mapping aus config.json, sonst Claude-Haiku-Auto-Kategorisierung (ADR-002)
+- POST /api/process (Bearer-Token) → Flask ruft Claude auf → Digest gespeichert (ADR-001, ADR-003)
 
 ## Wichtige Architektur-Entscheidung
-n8n ruft Claude NICHT direkt auf. Alle Mails gehen per POST /api/process an Flask.
+`fetch_mails.py` ruft Claude NICHT direkt für die Zusammenfassung auf. Alle Mails gehen per POST /api/process an Flask.
 Flask macht den Claude-API-Call (zentrale Haiku-Modell-Validierung + Fallback).
 Bei ungültiger Modell-ID: automatischer Fallback + Telegram-Alert.
 
@@ -84,7 +84,7 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 - Timer läuft **stündlich**, fetch_mails.py prüft `should_run_today()` → vergleicht `now.hour == schedule.hour`
 
 ## Pitfalls
-- **Gunicorn-Timeout:** `newsletter-digest.service` läuft mit `--timeout 120` (seit 2026-07-24, davor kein Flag = Gunicorn-Default 30s). Claude-Call in `call_claude()` erlaubt `timeout=90` – bei Gunicorn-Timeout < Requests-Timeout killt Gunicorn den Worker mitten in der Anfrage (`WORKER TIMEOUT`/`SIGABRT`) → 500 bei `/api/process`, n8n zeigt leere Digest-Seite mit Warning. Bei künftigen Änderungen am `timeout=90` in `app.py` den Gunicorn-Wert in der `.service`-Datei entsprechend nachziehen (Gunicorn-Wert immer > Requests-Timeout)
+- **Gunicorn-Timeout:** `newsletter-digest.service` läuft mit `--timeout 120` (seit 2026-07-24, davor kein Flag = Gunicorn-Default 30s). Claude-Call in `call_claude()` erlaubt `timeout=90` – bei Gunicorn-Timeout < Requests-Timeout killt Gunicorn den Worker mitten in der Anfrage (`WORKER TIMEOUT`/`SIGABRT`) → 500 bei `/api/process`, fetch_mails.py meldet die leere Digest-Seite mit Warning. Bei künftigen Änderungen am `timeout=90` in `app.py` den Gunicorn-Wert in der `.service`-Datei entsprechend nachziehen (Gunicorn-Wert immer > Requests-Timeout)
 - Bearer-Token nie ins Repo – in `/opt/newsletter-digest/.env`
 - Icons-Ordner muss `webhook`-User gehören: `chown webhook:webhook /opt/newsletter-digest/icons`
 - nginx proxy_pass mit trailing slash: `/newsletter/` → `http://127.0.0.1:5006/` (Strip des Präfixes)
