@@ -89,7 +89,7 @@ ssh root@89.167.104.145
 cd /opt/newsletter-digest
 venv/bin/python3 fetch_mails.py --catchup-days 14
 ```
-Durchsucht `[Gmail]/All Mail` (nicht INBOX, da ältere Mails ggf. schon archiviert sind) rein lesend, N Tage zurück, umgeht `should_run()`. Schreibt normal `digest_<heute>.json` über denselben `process_mails()`-Pfad inkl. Kosten-Hard-Kill-Schutz. Vor Nutzung sicherstellen, dass Kosten-Tracking aktiv ist (siehe unten) – bei vielen Tagen potenziell teurer als ein normaler Lauf.
+Durchsucht `[Google Mail]/Alle Nachrichten` (nicht INBOX, da ältere Mails ggf. schon archiviert sind) rein lesend, N Tage zurück, umgeht `should_run()`. Schreibt normal `digest_<heute>.json` über denselben `process_mails()`-Pfad inkl. Kosten-Hard-Kill-Schutz. Vor Nutzung sicherstellen, dass Kosten-Tracking aktiv ist (siehe unten) – bei vielen Tagen potenziell teurer als ein normaler Lauf.
 
 ## Kosten-Tracking (seit 2026-07-24)
 `costs.py` trackt jeden Claude-Call (Kategorie-Zusammenfassung in `app.py` + Auto-Kategorisierung in `fetch_mails.py`) in `claude_costs.json` (gitignored, USD, pro Call + Tag/Woche/Monat/Jahr). Session = ein Kalendertag.
@@ -110,7 +110,8 @@ Durchsucht `[Gmail]/All Mail` (nicht INBOX, da ältere Mails ggf. schon archivie
 - config.json auf Server kann durch PWA geändert werden – bei git pull Konflikt: `git stash && git pull && git stash drop`
 - `call_claude()` erwartet `cat_cfg`-Dict (nicht category-String + bullet_points-Int)
 - Nach git pull als root: `chown webhook:webhook /opt/newsletter-digest/config.json` – sonst 500 beim Einstellungen speichern (PermissionError)
-- Nach dem Digest-Lauf werden erfolgreich kategorisierte Mails automatisch als gelesen markiert und in `[Gmail]/All Mail` archiviert (aus INBOX entfernt). Unkategorisierte Mails bleiben im INBOX
+- Nach dem Digest-Lauf werden erfolgreich kategorisierte Mails automatisch als gelesen markiert und in `[Google Mail]/Alle Nachrichten` archiviert (aus INBOX entfernt). Unkategorisierte Mails bleiben im INBOX
+- **Gmail-Konto läuft auf Deutsch:** Mailbox-Namen sind lokalisiert – `[Google Mail]/Alle Nachrichten` (nicht `[Gmail]/All Mail`), `[Google Mail]/Gesendet`, `[Google Mail]/Papierkorb`, `[Google Mail]/Spam` etc. (verifiziert via `imap.list()`). Der Archivierungscode nutzte seit Einführung (2026-06-29) fälschlich den englischen Namen → `COPY` schlug seither bei jedem Lauf fehl, `\Seen` wurde aber vorher gesetzt (kein Rollback bei Exception in derselben try-Zeile) → ca. 310 Mails haben sich unarchiviert, aber als gelesen markiert in der INBOX angesammelt, bis der Fix am 2026-07-24 das Problem behob. Bei jedem neuen IMAP-Mailbox-Zugriff (`select`/`copy`/etc.) den `SELECT`-Rückgabewert prüfen (`typ != "OK"`), nicht stillschweigend ignorieren – hätte den Fehler sofort sichtbar gemacht statt eines stillen `COPY`-Fehlers pro Mail
 - `costs.py`/`_load()`: bei bereits existierender `claude_costs.json` im Alt-Format immer `dict.update(raw)` auf einen Default-Dict, nie `return raw` direkt – sonst `KeyError` auf neue Keys (`calls`/`daily`), live gefunden beim Sentiment-Scanner-Rollout (2026-07-24)
 - **Server-Drift-Warnung:** Diese Archivierungsfunktion in `fetch_mails.py` wurde am 2026-06-29 direkt auf dem Server implementiert und erst am 2026-07-24 (bei einem `git pull`-Konflikt) ins Repo zurückgeholt – bis dahin unsynchronisiert. Vor jedem Deploy prüfen (`ssh ... "cd /opt/newsletter-digest && git status"`), ob der Server unerwartete lokale Änderungen an `.py`-Dateien hat (nicht nur `config.json`, das ist normal) – sonst droht stillschweigender Feature-Verlust beim Überschreiben
 
