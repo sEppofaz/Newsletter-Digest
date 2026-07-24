@@ -83,6 +83,14 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 - `categories[].enabled: false` → Rubrik komplett überspringen
 - Timer läuft **stündlich**, fetch_mails.py prüft `should_run_today()` → vergleicht `now.hour == schedule.hour`
 
+## Nachhol-Digest (manuell, bei ausgefallenem Digest)
+```bash
+ssh root@89.167.104.145
+cd /opt/newsletter-digest
+venv/bin/python3 fetch_mails.py --catchup-days 14
+```
+Durchsucht `[Gmail]/All Mail` (nicht INBOX, da ältere Mails ggf. schon archiviert sind) rein lesend, N Tage zurück, umgeht `should_run()`. Schreibt normal `digest_<heute>.json` über denselben `process_mails()`-Pfad inkl. Kosten-Hard-Kill-Schutz. Vor Nutzung sicherstellen, dass Kosten-Tracking aktiv ist (siehe unten) – bei vielen Tagen potenziell teurer als ein normaler Lauf.
+
 ## Kosten-Tracking (seit 2026-07-24)
 `costs.py` trackt jeden Claude-Call (Kategorie-Zusammenfassung in `app.py` + Auto-Kategorisierung in `fetch_mails.py`) in `claude_costs.json` (gitignored, USD, pro Call + Tag/Woche/Monat/Jahr). Session = ein Kalendertag.
 - **1$/Tag:** Telegram-Info, Verarbeitung läuft normal weiter.
