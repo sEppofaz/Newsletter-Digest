@@ -148,8 +148,12 @@ def call_claude(cat_cfg: dict, mails: list, model: str | None = None) -> tuple[s
     cat_context = cat_cfg.get("context", cat_name)
     bullet_points = int(cat_cfg.get("bullet_points", 10))
 
+    def _source_domain(m: dict) -> str:
+        addr = m.get("from", "")
+        return addr.split("@")[-1] if "@" in addr else (addr or "unbekannt")
+
     bodies = "\n---\n".join(
-        f"Betreff: {m.get('subject', '(kein Betreff)')}\n\n{m.get('body', '')[:3000]}"
+        f"Quelle: {_source_domain(m)}\nBetreff: {m.get('subject', '(kein Betreff)')}\n\n{m.get('body', '')[:3000]}"
         for m in mails
     )
 
@@ -164,7 +168,9 @@ def call_claude(cat_cfg: dict, mails: list, model: str | None = None) -> tuple[s
         f"Du erhältst Newsletter-Inhalte und erstellst daraus eine hochwertige deutschsprachige Zusammenfassung.\n\n"
         f"Format (Markdown):\n"
         f"- Genau {bullet_points} Punkte\n"
-        f"- Jeder Punkt: **Kurze prägnante Überschrift** – 2–3 Sätze Erläuterung, sachlich und informativ\n"
+        f"- Jeder Punkt: **Kurze prägnante Überschrift** – 2–3 Sätze Erläuterung, sachlich und informativ, "
+        f"danach am Satzende in Klammern die Quelle (Domain aus der 'Quelle:'-Angabe des jeweiligen Mail-Inhalts, "
+        f"z.B. '(Quelle: therundown.ai)'; stammt ein Punkt aus mehreren Mails, alle Domains kommagetrennt nennen)\n"
         f"- Themen mit den priorisierten Schlagwörtern zuerst (falls vorhanden)\n"
         f"- Wichtigstes zuerst, kein Marketing-Sprech\n"
         f"- Letzter Absatz (eigene Zeile, kein Bullet): _Relevanz heute: [1 Satz]_\n"
