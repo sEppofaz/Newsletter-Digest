@@ -110,13 +110,17 @@ def should_run_today() -> bool:
     WEEKDAYS = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
                 "friday": 4, "saturday": 5, "sunday": 6}
     stype = schedule.get("type", "weekly")
-    target_hour = int(schedule.get("hour", 7))
 
+    if stype == "daily":
+        # "hours" = beliebig viele Uhrzeiten pro Tag (seit 2026-07-26). Fallback auf
+        # das alte einzelne "hour"-Feld für noch nicht migrierte configs.
+        hours = schedule.get("hours") or [schedule.get("hour", 7)]
+        return now.hour in {int(h) for h in hours}
+
+    target_hour = int(schedule.get("hour", 7))
     if now.hour != target_hour:
         return False
 
-    if stype == "daily":
-        return True
     if stype == "weekly":
         return now.weekday() == WEEKDAYS.get(schedule.get("weekday", "sunday"), 6)
     if stype == "monthly":

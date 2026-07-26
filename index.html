@@ -384,9 +384,17 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
             <option value="sunday">Sonntag</option>
           </select>
         </div>
-        <div style="display:flex;align-items:center;gap:10px">
+        <div id="s-single-hour-opts" style="display:flex;align-items:center;gap:10px">
           <label style="font-size:13px;color:var(--muted);white-space:nowrap">Uhrzeit:</label>
           <select id="s-hour" class="settings-select" style="margin-bottom:0;max-width:120px"></select>
+        </div>
+        <div id="s-daily-times-opts" style="display:none">
+          <label style="font-size:13px;color:var(--muted)">Uhrzeiten (beliebig viele pro Tag):</label>
+          <div id="time-list" class="sender-list"></div>
+          <div class="add-sender-row">
+            <select id="s-new-hour" class="settings-select"></select>
+            <button class="btn-add" onclick="addTime()">+</button>
+          </div>
         </div>
       </div>
 
@@ -433,7 +441,8 @@ let _cfg = null;  // aktuelle config aus API
 // ─── Init ─────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
-  fillHourSelect();
+  fillHourSelect('s-hour', 7);
+  fillHourSelect('s-new-hour', 18);
   _cfg = await fetchConfig();
   renderTabs(_cfg);
   loadDigestList();
@@ -684,21 +693,52 @@ function saveToken() {
   document.getElementById('token-status').textContent = val ? '✓ Token gespeichert' : 'Token gelöscht';
 }
 
-function fillHourSelect() {
-  const sel = document.getElementById('s-hour');
+function fillHourSelect(selId, defaultHour = 7) {
+  const sel = document.getElementById(selId);
+  sel.innerHTML = '';
   for (let h = 0; h < 24; h++) {
     const o = document.createElement('option');
     o.value = h;
     o.textContent = `${String(h).padStart(2,'0')}:00 Uhr`;
-    if (h === 7) o.selected = true;
+    if (h === defaultHour) o.selected = true;
     sel.appendChild(o);
   }
 }
 
 function onScheduleTypeChange() {
   const type = document.getElementById('s-type').value;
-  document.getElementById('s-weekly-opts').style.display  = type === 'weekly'  ? '' : 'none';
-  document.getElementById('s-monthly-opts').style.display = type === 'monthly' ? '' : 'none';
+  document.getElementById('s-weekly-opts').style.display     = type === 'weekly'  ? '' : 'none';
+  document.getElementById('s-monthly-opts').style.display    = type === 'monthly' ? '' : 'none';
+  document.getElementById('s-single-hour-opts').style.display  = type === 'daily' ? 'none' : 'flex';
+  document.getElementById('s-daily-times-opts').style.display  = type === 'daily' ? '' : 'none';
+}
+
+// ─── Tägliche Uhrzeiten (mehrere pro Tag) ──────────────────────────────────
+
+let _times = [7];  // live state für "täglich"-Uhrzeiten im Settings-Sheet
+
+function renderTimeList(times) {
+  _times = [...times].sort((a, b) => a - b);
+  const list = document.getElementById('time-list');
+  list.innerHTML = _times.map(h => `
+    <div class="sender-row">
+      <span class="sender-email">${String(h).padStart(2,'0')}:00 Uhr</span>
+      <button class="btn-del" onclick="deleteTime(${h})" title="Entfernen" ${_times.length <= 1 ? 'disabled style="opacity:.3;cursor:default"' : ''}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function deleteTime(hour) {
+  if (_times.length <= 1) return;
+  renderTimeList(_times.filter(h => h !== hour));
+}
+
+function addTime() {
+  const h = Number(document.getElementById('s-new-hour').value);
+  if (_times.includes(h)) return;
+  renderTimeList([..._times, h]);
 }
 
 // ─── Config → UI ──────────────────────────────────────────────────────────
@@ -710,6 +750,7 @@ function applyConfigToUI(cfg) {
   document.getElementById('s-week').value     = String(sched.week || 1);
   document.getElementById('s-mweekday').value = sched.weekday || 'friday';
   document.getElementById('s-hour').value     = String(sched.hour ?? 7);
+  renderTimeList(sched.hours && sched.hours.length ? sched.hours : [sched.hour ?? 7]);
   document.getElementById('s-archive').value  = String(cfg.max_archive || 10);
   onScheduleTypeChange();
   renderCatList(cfg.categories || []);
@@ -857,12 +898,17 @@ async function saveSettings() {
   }
 
   const type = document.getElementById('s-type').value;
-  const schedule = {type, hour: Number(document.getElementById('s-hour').value)};
-  if (type === 'weekly') {
-    schedule.weekday = document.getElementById('s-weekday').value;
-  } else if (type === 'monthly') {
-    schedule.weekday = document.getElementById('s-mweekday').value;
-    schedule.week    = Number(document.getElementById('s-week').value);
+  const schedule = {type};
+  if (type === 'daily') {
+    schedule.hours = [..._times].sort((a, b) => a - b);
+  } else {
+    schedule.hour = Number(document.getElementById('s-hour').value);
+    if (type === 'weekly') {
+      schedule.weekday = document.getElementById('s-weekday').value;
+    } else if (type === 'monthly') {
+      schedule.weekday = document.getElementById('s-mweekday').value;
+      schedule.week    = Number(document.getElementById('s-week').value);
+    }
   }
 
   const cfg = {
