@@ -73,7 +73,7 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 ## Config-Schema (config.json)
 ```json
 {
-  "schedule": {"type": "weekly|daily|monthly", "weekday": "sunday", "week": 1, "hour": 7},
+  "schedule": {"type": "weekly|daily|monthly", "weekday": "sunday", "week": 1, "hour": 7, "hours": [7, 18]},
   "max_archive": 10,
   "categories": [
     {"id": "ki_tech", "name": "KI & Tech", "enabled": true, "bullet_points": 10,
@@ -84,7 +84,8 @@ Methode B (cairosvg, server-seitig), generiert in `/opt/newsletter-digest/icons/
 ```
 - `categories[].keywords` → in Claude-Prompt priorisiert: „Besonders relevant: X, Y"
 - `categories[].enabled: false` → Rubrik komplett überspringen
-- Timer läuft **stündlich**, fetch_mails.py prüft `should_run_today()` → vergleicht `now.hour == schedule.hour`
+- Timer läuft **stündlich**, fetch_mails.py prüft `should_run_today()` → bei `type: "daily"` läuft der Digest zu **jeder** in `schedule.hours` gelisteten Uhrzeit (seit 2026-07-26, beliebig viele, Standard aktuell `[7, 18]` = 2×/Tag). `weekly`/`monthly` weiterhin nur eine `schedule.hour`. Alte configs mit nur `hour` (kein `hours`) werden für `daily` automatisch als Ein-Uhrzeiten-Liste behandelt – kein manuelles Migrieren nötig.
+- **Kostenhinweis:** jede zusätzliche tägliche Uhrzeit verdoppelt/vervielfacht die Digest-Erstellungskosten (ein Kategorisierungs-Lauf pro konfigurierter Uhrzeit) – bei `[7, 18]` grob 2× die bisherigen ~$0,20–0,25/Tag. In der PWA unter Einstellungen → Zeitplan → „Täglich" → Uhrzeiten-Liste einstellbar.
 
 ## Nachhol-Digest (manuell, bei ausgefallenem Digest)
 ```bash
