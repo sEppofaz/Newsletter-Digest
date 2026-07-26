@@ -504,6 +504,7 @@ function switchTab(btn) {
 const ptrEl = document.getElementById('ptr');
 let ptrStartY = 0, ptrActive = false;
 document.addEventListener('touchstart', e => {
+  if (e.target.closest('.tab-btn, #archive-select')) return;
   if (window.scrollY === 0) { ptrStartY = e.touches[0].clientY; ptrActive = true; }
 }, {passive: true});
 document.addEventListener('touchmove', e => {
