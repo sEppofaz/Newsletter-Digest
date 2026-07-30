@@ -628,7 +628,7 @@ function parseDigestText(text) {
     }
     if (html) html += `<div class="digest-item"><div class="digest-item-body">${esc(t)}</div></div>`;
   }
-  if (relevanz) html += `<div class="digest-relevanz">${esc(relevanz)}</div>`;
+  if (relevanz) html = `<div class="digest-relevanz">${esc(relevanz)}</div>` + html;
   return html || `<div class="no-cat">Inhalt konnte nicht geparst werden.</div>`;
 }
 
