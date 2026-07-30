@@ -21,7 +21,7 @@ git -C ~/Dropbox/Apps/Claude/Newsletter push
 ssh root@89.167.104.145 "git -C /opt/newsletter-digest pull && chown webhook:webhook /opt/newsletter-digest/config.json && systemctl restart newsletter-digest"
 ```
 
-⚠️ **Nach jedem git pull:** `config.json` gehört danach root (git pull als root) → gunicorn (User: webhook) kann nicht schreiben → Einstellungen speichern schlägt mit 500 fehl. Immer `chown webhook:webhook /opt/newsletter-digest/config.json` nach dem Pull ausführen.
+⚠️ **Nach jedem git pull:** `config.json` gehört danach root (git pull als root) → gunicorn (User: webhook) kann nicht schreiben → Einstellungen speichern schlägt mit 500 fehl. Immer `chown webhook:webhook /opt/newsletter-digest/config.json` nach dem Pull ausführen. Bei Deploy über Claude-Remote (`git_pull`-Aktion) passiert das automatisch (siehe `claude-remote-git-pull`-Script im Claude-Remote-Repo); beim manuellen SSH-Deploy oben weiterhin nötig.
 
 ## Server-Pfade
 - App: `/opt/newsletter-digest/`
