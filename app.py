@@ -1,4 +1,4 @@
-import os, json, logging
+import os, json, logging, re
 from pathlib import Path
 from datetime import datetime, timedelta
 from functools import wraps
@@ -78,6 +78,23 @@ def telegram_alert(msg: str):
 
 def telegram_digest(msg: str):
     _send_telegram_raw(f"📰 [Newsletter-Digest]\n{msg}")
+
+
+NEWSLETTER_URL = "https://umbenennen.duckdns.org/newsletter/"
+
+
+def build_digest_teaser(date_str: str, categories_result: dict, cat_map: dict, cat_count: dict) -> str:
+    parts = [f"📰 Newsletter-Digest {date_str}"]
+    for cat_id, text in categories_result.items():
+        name = cat_map.get(cat_id, {}).get("name", cat_id)
+        n_mails = cat_count.get(cat_id, "?")
+        n_points = len(re.findall(r'^\s*(?:\d+[.)]|[-*])\s*\*\*', text, re.MULTILINE))
+        parts.append(f"\n📌 {name} ({n_mails} Mails, {n_points} Punkte)")
+        m = re.search(r'_?relevanz heute:\s*(.+?)_?\s*$', text, re.IGNORECASE | re.MULTILINE)
+        if m:
+            parts.append(f"\n   {m.group(1).strip()}")
+    parts.append(f"\n\nAlle Details: {NEWSLETTER_URL}")
+    return "".join(parts)
 
 
 def load_config() -> dict:
@@ -404,11 +421,7 @@ def api_process():
     log.info("Digest gespeichert: %s", fname.name)
     cleanup_old_digests(int(cfg.get("max_archive", 10)))
 
-    parts = [f"Ausgabe {date_str}"]
-    for cat_id, summary in categories_result.items():
-        cat_name = cat_map.get(cat_id, {}).get("name", cat_id)
-        parts.append(f"\n\n━━━ {cat_name} ━━━\n\n{summary}")
-    telegram_digest("".join(parts))
+    telegram_digest(build_digest_teaser(date_str, categories_result, cat_map, digest["cat_count"]))
 
     return jsonify({"ok": True, "date": date_str, "categories": list(categories_result.keys())})
 

@@ -615,7 +615,7 @@ function parseDigestText(text) {
       relevanz = t.replace(/^_/, '').replace(/_$/, '');
       continue;
     }
-    const bold = t.replace(/^[-*](?!\*)\s*/, '');
+    const bold = t.replace(/^(?:[-*](?!\*)|\d+[.)])\s*/, '');
     const m = bold.match(/^\*\*(.+?)\*\*\s*[–-]\s*([\s\S]+)/);
     if (m) {
       html += `<div class="digest-item"><div class="digest-item-title">${esc(m[1])}</div><div class="digest-item-body">${esc(m[2].trim())}</div></div>`;
