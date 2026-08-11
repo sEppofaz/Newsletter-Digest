@@ -125,6 +125,19 @@ Durchsucht `[Google Mail]/Alle Nachrichten` (nicht INBOX, da ältere Mails ggf. 
 - **Gmail-Konto läuft auf Deutsch:** Mailbox-Namen sind lokalisiert – `[Google Mail]/Alle Nachrichten` (nicht `[Gmail]/All Mail`), `[Google Mail]/Gesendet`, `[Google Mail]/Papierkorb`, `[Google Mail]/Spam` etc. (verifiziert via `imap.list()`). Der Archivierungscode nutzte seit Einführung (2026-06-29) fälschlich den englischen Namen → `COPY` schlug seither bei jedem Lauf fehl, `\Seen` wurde aber vorher gesetzt (kein Rollback bei Exception in derselben try-Zeile) → ca. 310 Mails haben sich unarchiviert, aber als gelesen markiert in der INBOX angesammelt, bis der Fix am 2026-07-24 das Problem behob. Bei jedem neuen IMAP-Mailbox-Zugriff (`select`/`copy`/etc.) den `SELECT`-Rückgabewert prüfen (`typ != "OK"`), nicht stillschweigend ignorieren – hätte den Fehler sofort sichtbar gemacht statt eines stillen `COPY`-Fehlers pro Mail
 - `costs.py`/`_load()`: bei bereits existierender `claude_costs.json` im Alt-Format immer `dict.update(raw)` auf einen Default-Dict, nie `return raw` direkt – sonst `KeyError` auf neue Keys (`calls`/`daily`), live gefunden beim Sentiment-Scanner-Rollout (2026-07-24)
 - **Server-Drift-Warnung:** Diese Archivierungsfunktion in `fetch_mails.py` wurde am 2026-06-29 direkt auf dem Server implementiert und erst am 2026-07-24 (bei einem `git pull`-Konflikt) ins Repo zurückgeholt – bis dahin unsynchronisiert. Vor jedem Deploy prüfen (`ssh ... "cd /opt/newsletter-digest && git status"`), ob der Server unerwartete lokale Änderungen an `.py`-Dateien hat (nicht nur `config.json`, das ist normal) – sonst droht stillschweigender Feature-Verlust beim Überschreiben
+- **Doppelte `let`-Deklaration bricht das komplette Inline-Script (2026-08-11):** Die Swipe-Navigation (v2.8) deklarierte global `let _cats`, das mit der schon bestehenden Settings-Sheet-Variable gleichen Namens kollidierte – zwei `let`-Deklarationen im selben Scope sind ein JS-Syntaxfehler, der das gesamte `<script>` am Parsen hindert (nicht nur die neue Funktion). `curl`-Checks auf statisches HTML sehen so einen Fehler nicht, da sie nur den HTML-Text prüfen, nicht die JS-Ausführung. Fix: Swipe-Variable zu `_swipeCats` umbenannt (v2.9). Bei künftigen JS-Änderungen in `index.html`: Variablennamen vorab mit `grep -n "let <name>"` auf Kollisionen prüfen, und Syntax nicht nur per `curl`, sondern mit einer echten JS-Engine (z.B. `osascript -l JavaScript -e "$(cat script.js)"` auf macOS) verifizieren.
+- **`_set_podcast_status()` sollte bei jedem Statuswechsel den Eintrag ersetzen, nicht mergen:** Erste Version mergte per `entry.update(extra)` – nach einem fehlgeschlagenen Versuch (`status: error`) blieb die alte Fehlermeldung auch nach einem erfolgreichen Retry (`status: done`) im JSON stehen, da `error` nie explizit entfernt wurde. Fix: `data[date_str] = {...}` baut bei jedem Aufruf einen frischen Eintrag.
+
+## Podcast-Feature (seit 2026-08-11)
+Button „Podcast erstellen" pro Digest-Tag erzeugt einen Zwei-Sprecher-Podcast:
+- `podcast.py` – neues Modul: `generate_script()` (Claude-Call, System-Prompt für Dialogskript, Antwort als reines JSON-Array `[{"speaker":"A"|"B","text":"..."}]`), `synthesize_audio()` (OpenAI TTS `tts-1`, Stimme `onyx` für Sprecher A männlich / `nova` für Sprecher B weiblich, Zusammenführung per `pydub`), `upload_to_dropbox()`/`download_audio()` (Dropbox SDK, App-Folder-Scope)
+- Läuft als Hintergrund-Thread (`threading.Thread`, `daemon=True`) in `app.py`, Status in `data/podcast_status.json` (nicht im Repo, wie `data/` generell)
+- Endpoints: `POST /api/podcast/<datum>` (startet Erstellung, 429 bei Tages-Kostenlimit), `GET /api/podcast/<datum>/status` (Polling), `GET /api/podcast/<datum>/audio` (streamt von Dropbox durch, kein Dropbox-Token im Client)
+- Fertiges Ergebnis wird zusätzlich als `podcast`-Feld ins `digest_<datum>.json` geschrieben (Quelle der Wahrheit für die App; der Status-File ist nur für laufende Erstellung)
+- Kosten: `costs.py` um `record_tts_call()` erweitert (OpenAI tts-1: $0,015/1000 Zeichen), teilt sich Tages-Warn-/Hard-Kill-Schwellen (1$/5$) mit dem bestehenden Claude-Tracking in derselben `claude_costs.json`
+- Neue Secrets in `.env`: `OPENAI_API_KEY` (Scope: nur `Text-to-speech (/v1/audio/speech)`, Restricted), `DROPBOX_APP_KEY`/`DROPBOX_APP_SECRET`/`DROPBOX_REFRESH_TOKEN` (eigene Dropbox-App, App-Folder-Scope, nicht der zentrale Token anderer Projekte)
+- Server: `dropbox` + `pydub` im venv installiert, `ffmpeg` war schon vorhanden (`/usr/bin/ffmpeg`)
+- Verifiziert mit echtem Test-Digest (2026-08-11): Skript-Qualität gut (natürlicher Dialog, keine reine Stichpunkt-Vorlesung), Audio 793KB/~99s MP3 abspielbar, Kosten korrekt getrackt ($0,047 TTS + $0,016 Skript). Erster Testlauf schlug mit 429 fehl, da der neue OpenAI-Account noch keine Credits hatte – nach Aufladung erfolgreich.
 
 ## Aktueller Stand
 [x] GitHub-Repo angelegt (sEppofaz/Newsletter-Digest)
@@ -132,7 +145,7 @@ Durchsucht `[Google Mail]/Alle Nachrichten` (nicht INBOX, da ältere Mails ggf. 
 [x] systemd-Service aktiv (newsletter-digest.service, Port 5006)
 [x] systemd-Timer aktiv (newsletter-fetch.timer, stündlich)
 [x] nginx-Location aktiv (/newsletter/)
-[x] .env auf Server gesetzt (ANTHROPIC_API_KEY, CLAUDE_MODEL, BEARER_TOKEN, TELEGRAM_*, GMAIL_*)
+[x] .env auf Server gesetzt (ANTHROPIC_API_KEY, CLAUDE_MODEL, BEARER_TOKEN, TELEGRAM_*, GMAIL_*, OPENAI_API_KEY, DROPBOX_*)
 [x] Icon-Berechtigungen gesetzt (chown webhook)
 [x] Gmail IMAP aktiviert + App-Passwort generiert (josef.jf.fischer@gmail.com)
 [x] Erster Test-Digest manuell erstellt und in PWA gerendert
@@ -142,3 +155,5 @@ Durchsucht `[Google Mail]/Alle Nachrichten` (nicht INBOX, da ältere Mails ggf. 
 [x] Dynamische Tabs aus Config
 [x] Double-Opt-In-Mails bestätigt (11 Newsletter)
 [x] PWA auf Homescreen installiert
+[x] Horizontales Wischen zwischen Rubriken (v2.8/v2.9)
+[x] Podcast-Feature: Zwei-Sprecher-TTS, Dropbox-Ablage (v2.9)
