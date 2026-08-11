@@ -175,10 +175,7 @@ def _load_podcast_status() -> dict:
 def _set_podcast_status(date_str: str, status: str, **extra):
     with _podcast_lock:
         data = _load_podcast_status()
-        entry = data.setdefault(date_str, {})
-        entry["status"] = status
-        entry.update(extra)
-        entry["updated_at"] = datetime.now().isoformat()
+        data[date_str] = {"status": status, "updated_at": datetime.now().isoformat(), **extra}
         PODCAST_STATUS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 
 
