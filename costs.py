@@ -14,6 +14,8 @@ PRICING = {
 }
 _DEFAULT_PRICE = PRICING["claude-haiku-4-5-20251001"]  # Fallback bei unbekannter Modell-ID
 
+TTS_PRICE_PER_CHAR_USD = 0.015 / 1000  # OpenAI tts-1 (Standard)
+
 
 def _load() -> dict:
     data = {"calls": [], "daily": {}, "total_cost_usd": 0.0,
@@ -38,10 +40,29 @@ def _write(data: dict):
     os.replace(tmp_path, COSTS_PATH)
 
 
+def _bump_day(data: dict, cost_usd: float) -> dict:
+    today = date.today().isoformat()
+    day = data["daily"].setdefault(today, {
+        "cost_usd": 0.0, "calls": 0, "notified_1usd": False, "hard_killed": False,
+    })
+    day["cost_usd"] += cost_usd
+    day["calls"] += 1
+
+    warn_1usd = False
+    if day["cost_usd"] >= DAILY_WARN_USD and not day["notified_1usd"]:
+        day["notified_1usd"] = True
+        warn_1usd = True
+
+    hard_kill = day["cost_usd"] >= DAILY_HARD_KILL_USD
+    if hard_kill:
+        day["hard_killed"] = True
+
+    return {"day_total_usd": day["cost_usd"], "warn_1usd": warn_1usd, "hard_kill": hard_kill}
+
+
 def record_call(model: str, input_tokens: int, output_tokens: int, context: str) -> dict:
     price = PRICING.get(model, _DEFAULT_PRICE)
     cost_usd = input_tokens * price["input"] + output_tokens * price["output"]
-    today = date.today().isoformat()
 
     with _lock:
         data = _load()
@@ -51,30 +72,34 @@ def record_call(model: str, input_tokens: int, output_tokens: int, context: str)
             "cost_usd": cost_usd, "context": context,
         })
         data["calls"] = data["calls"][-500:]
-
-        day = data["daily"].setdefault(today, {
-            "cost_usd": 0.0, "calls": 0, "notified_1usd": False, "hard_killed": False,
-        })
-        day["cost_usd"] += cost_usd
-        day["calls"] += 1
+        day_result = _bump_day(data, cost_usd)
 
         data["total_cost_usd"] = data.get("total_cost_usd", 0.0) + cost_usd
         data["total_input_tokens"] = data.get("total_input_tokens", 0) + input_tokens
         data["total_output_tokens"] = data.get("total_output_tokens", 0) + output_tokens
 
-        warn_1usd = False
-        if day["cost_usd"] >= DAILY_WARN_USD and not day["notified_1usd"]:
-            day["notified_1usd"] = True
-            warn_1usd = True
+        _write(data)
 
-        hard_kill = day["cost_usd"] >= DAILY_HARD_KILL_USD
-        if hard_kill:
-            day["hard_killed"] = True
+    return {"cost_usd": cost_usd, **day_result}
+
+
+def record_tts_call(char_count: int, context: str) -> dict:
+    cost_usd = char_count * TTS_PRICE_PER_CHAR_USD
+
+    with _lock:
+        data = _load()
+        data["calls"].append({
+            "ts": datetime.now().isoformat(timespec="seconds"),
+            "chars": char_count, "cost_usd": cost_usd, "context": context,
+        })
+        data["calls"] = data["calls"][-500:]
+        day_result = _bump_day(data, cost_usd)
+
+        data["total_cost_usd"] = data.get("total_cost_usd", 0.0) + cost_usd
 
         _write(data)
 
-    return {"cost_usd": cost_usd, "day_total_usd": day["cost_usd"],
-            "warn_1usd": warn_1usd, "hard_kill": hard_kill}
+    return {"cost_usd": cost_usd, **day_result}
 
 
 def load_costs_summary() -> dict:

@@ -1,12 +1,13 @@
-import os, json, logging, re
+import os, json, logging, re, threading
 from pathlib import Path
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Flask, jsonify, request, send_file, abort
+from flask import Flask, jsonify, request, send_file, abort, Response
 from dotenv import dotenv_values
 import requests as http_client
 
 import costs
+import podcast
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -16,8 +17,11 @@ BASE = Path(__file__).parent
 DATA_DIR = BASE / "data" / "digests"
 ICONS_DIR = BASE / "icons"
 CONFIG_FILE = BASE / "config.json"
+PODCAST_STATUS_FILE = BASE / "data" / "podcast_status.json"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 ICONS_DIR.mkdir(parents=True, exist_ok=True)
+
+_podcast_lock = threading.Lock()
 
 _env = dotenv_values(BASE / ".env")
 BEARER_TOKEN       = _env.get("BEARER_TOKEN", "")
@@ -155,6 +159,47 @@ def cleanup_old_digests(max_keep: int):
     for old in all_digests[max_keep:]:
         old.unlink()
         log.info("Alten Digest gelöscht: %s", old.name)
+
+
+# ─── Podcast-Status (Hintergrund-Thread-Tracking) ────────────────────────────
+
+def _load_podcast_status() -> dict:
+    if PODCAST_STATUS_FILE.exists():
+        try:
+            return json.loads(PODCAST_STATUS_FILE.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def _set_podcast_status(date_str: str, status: str, **extra):
+    with _podcast_lock:
+        data = _load_podcast_status()
+        entry = data.setdefault(date_str, {})
+        entry["status"] = status
+        entry.update(extra)
+        entry["updated_at"] = datetime.now().isoformat()
+        PODCAST_STATUS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+
+
+def _run_podcast_generation(date_str: str, digest: dict, cat_map: dict):
+    try:
+        result = podcast.generate_podcast(date_str, digest, cat_map)
+        fname = DATA_DIR / f"digest_{date_str}.json"
+        current = json.loads(fname.read_text())
+        current["podcast"] = {
+            "audio_path": result["audio_path"],
+            "script_path": result["script_path"],
+            "generated_at": datetime.now().isoformat(),
+        }
+        fname.write_text(json.dumps(current, ensure_ascii=False, indent=2))
+        _set_podcast_status(date_str, "done", audio_path=result["audio_path"])
+        log.info("Podcast erstellt: %s", date_str)
+    except Exception as e:
+        err = f"Podcast-Erstellung für {date_str} fehlgeschlagen: {e}"
+        log.error(err)
+        telegram_alert(err)
+        _set_podcast_status(date_str, "error", error=str(e))
 
 
 # ─── Claude-Integration ──────────────────────────────────────────────────────
@@ -448,6 +493,54 @@ def api_digest_by_date(date_str: str):
     if not fname.exists():
         return jsonify({"error": "Nicht gefunden"}), 404
     return jsonify(json.loads(fname.read_text()))
+
+
+@app.route("/api/podcast/<date_str>", methods=["POST"])
+def api_podcast_generate(date_str: str):
+    if not date_str.replace("-", "").isdigit() or len(date_str) != 10:
+        abort(400)
+    fname = DATA_DIR / f"digest_{date_str}.json"
+    if not fname.exists():
+        return jsonify({"error": "Kein Digest für dieses Datum"}), 404
+
+    digest = json.loads(fname.read_text())
+    if digest.get("podcast"):
+        return jsonify({"status": "done", "audio_path": digest["podcast"]["audio_path"]})
+
+    today_costs = costs.load_costs_summary().get("today", {})
+    if today_costs.get("cost_usd", 0.0) >= costs.DAILY_HARD_KILL_USD:
+        return jsonify({"error": "Tages-Kostenlimit erreicht – heute kein Podcast mehr möglich"}), 429
+
+    status = _load_podcast_status().get(date_str, {})
+    if status.get("status") == "generating":
+        return jsonify({"status": "generating"}), 202
+
+    cfg = load_config()
+    cat_map = {c["id"]: c for c in cfg.get("categories", DEFAULT_CATEGORIES)}
+
+    _set_podcast_status(date_str, "generating")
+    threading.Thread(
+        target=_run_podcast_generation, args=(date_str, digest, cat_map), daemon=True,
+    ).start()
+    return jsonify({"status": "generating"}), 202
+
+
+@app.route("/api/podcast/<date_str>/status")
+def api_podcast_status(date_str: str):
+    return jsonify(_load_podcast_status().get(date_str, {"status": "none"}))
+
+
+@app.route("/api/podcast/<date_str>/audio")
+def api_podcast_audio(date_str: str):
+    fname = DATA_DIR / f"digest_{date_str}.json"
+    if not fname.exists():
+        abort(404)
+    digest = json.loads(fname.read_text())
+    podcast_meta = digest.get("podcast")
+    if not podcast_meta:
+        abort(404)
+    audio_bytes = podcast.download_audio(podcast_meta["audio_path"])
+    return Response(audio_bytes, mimetype="audio/mpeg")
 
 
 if __name__ == "__main__":
