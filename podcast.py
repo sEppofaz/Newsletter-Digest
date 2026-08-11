@@ -34,9 +34,14 @@ def generate_script(digest: dict, cat_map: dict) -> list[dict]:
     digest_text = _build_digest_text(digest, cat_map)
 
     system = (
-        "Du erstellst das Skript für einen kurzen deutschsprachigen Zwei-Personen-Podcast, "
+        "Du erstellst das Skript für einen deutschsprachigen Zwei-Personen-Podcast, "
         "der einen Newsletter-Digest vorstellt.\n"
-        "Sprecher A (männlich) moderiert und kündigt jeden Punkt kurz launig an.\n"
+        "WICHTIG: Der Podcast muss VOLLSTÄNDIG sein – jeder einzelne Punkt aus jeder Kategorie "
+        "des Digests muss vorkommen, keine Auswahl/Kürzung. Ausnahme: Enthält eine Kategorie "
+        "keinen echten Nachrichteninhalt (z.B. nur eine Fehlermeldung/Entschuldigung statt "
+        "Stichpunkten), lasse diese Kategorie komplett weg.\n"
+        "Sprecher A (männlich) moderiert, kündigt jeden Punkt kurz launig an und leitet beim "
+        "Wechsel auf eine neue Kategorie kurz über.\n"
         "Sprecher B (weiblich) erläutert den Inhalt in 2-3 natürlich gesprochenen Sätzen "
         "(frei formuliert wie in einem echten Gespräch, kein Vorlesen von Stichpunkten).\n"
         "Beginne mit einer kurzen Begrüßung durch Sprecher A, ende mit einer kurzen Verabschiedung.\n"
@@ -53,11 +58,11 @@ def generate_script(digest: dict, cat_map: dict) -> list[dict]:
         },
         json={
             "model": CLAUDE_MODEL,
-            "max_tokens": 4000,
+            "max_tokens": 8000,
             "system": system,
             "messages": [{"role": "user", "content": digest_text}],
         },
-        timeout=90,
+        timeout=120,
     )
     resp.raise_for_status()
     resp_json = resp.json()
