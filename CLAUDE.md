@@ -102,6 +102,10 @@ Durchsucht `[Google Mail]/Alle Nachrichten` (nicht INBOX, da ältere Mails ggf. 
 - Sichtbar über `/api/costs` + Kosten-Overlay in der PWA (Header-Button neben Einstellungen).
 - Details: ADR-004, `PKA/BKM/Claude-API-Kosten-Tracking.md`.
 
+## Dark-/Hell-Modus-Umschalter (v2.12, 2026-08-15)
+
+Manueller Umschalter im Info-Sheet ergänzt (überschreibt `prefers-color-scheme`), Standard-Pattern aus `PKA/BKM/PWA-Standards.md`. `theme-color`-Meta war ohnehin für Light/Dark identisch, daher nur auf ein Tag konsolidiert (kein dynamischer Sync nötig). Kein SW-Cache-Bump nötig (network-first HTML).
+
 ## Pitfalls
 - **Gunicorn-Timeout:** `newsletter-digest.service` läuft mit `--timeout 120` (seit 2026-07-24, davor kein Flag = Gunicorn-Default 30s). Claude-Call in `call_claude()` erlaubt `timeout=90` – bei Gunicorn-Timeout < Requests-Timeout killt Gunicorn den Worker mitten in der Anfrage (`WORKER TIMEOUT`/`SIGABRT`) → 500 bei `/api/process`, fetch_mails.py meldet die leere Digest-Seite mit Warning. Bei künftigen Änderungen am `timeout=90` in `app.py` den Gunicorn-Wert in der `.service`-Datei entsprechend nachziehen (Gunicorn-Wert immer > Requests-Timeout)
 - `telegram_alert()`/`notify_telegram()` splitten Nachrichten >4096 Zeichen automatisch (siehe `PKA/BKM/Telegram-Integration.md`)
