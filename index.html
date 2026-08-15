@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#1e3a5f" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1e3a5f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#1e3a5f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Digest">
@@ -28,7 +27,7 @@
   --card-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg:      #1c1c1e;
     --bg2:     #2c2c2e;
     --bg3:     #3a3a3c;
@@ -41,6 +40,19 @@
     --chip-bg: #3a3a3c;
     --card-shadow: 0 1px 3px rgba(0,0,0,.3);
   }
+}
+:root[data-theme="dark"] {
+  --bg:      #1c1c1e;
+  --bg2:     #2c2c2e;
+  --bg3:     #3a3a3c;
+  --accent:  #4a8fd4;
+  --accent2: #5ba3e8;
+  --text:    #ffffff;
+  --text2:   #ebebf5cc;
+  --muted:   #aeaeb2;
+  --border:  #38383a;
+  --chip-bg: #3a3a3c;
+  --card-shadow: 0 1px 3px rgba(0,0,0,.3);
 }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 16px; line-height: 1.5; }
@@ -230,7 +242,20 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .costs-call-meta { color: var(--muted); font-size: 11px; }
 .costs-call-cost { font-weight: 600; flex-shrink: 0; }
 .costs-empty { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
+.theme-switch-row { display: flex; align-items: center; justify-content: space-between; margin: 16px 0; font-size: .92rem; font-weight: 500; color: var(--text); }
+.theme-switch { width: 46px; height: 26px; border-radius: 13px; background: var(--border); border: none; position: relative; padding: 0; cursor: pointer; transition: background .2s ease; flex-shrink: 0; -webkit-appearance: none; }
+.theme-switch[aria-checked="true"] { background: var(--accent); }
+.theme-switch-knob { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s ease; }
+.theme-switch[aria-checked="true"] .theme-switch-knob { transform: translateX(20px); }
 </style>
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('nl_theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
 
@@ -308,7 +333,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         <span class="help-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>
         <p>Über <strong>„Podcast erstellen"</strong> lässt sich jeder Digest als vollständiger Zwei-Personen-Podcast anhören (deckt jeden Punkt jeder Rubrik ab, Erstellung kann je nach Digest-Länge mehrere Minuten dauern). Skript und Audio werden auf Dropbox gespeichert.</p>
       </div>
-      <p class="info-version">Newsletter Digest v2.11 · 2026-08-14</p>
+      <div class="theme-switch-row">
+        <span>Dunkelmodus</span>
+        <button class="theme-switch" id="theme-toggle" role="switch" aria-checked="false" onclick="toggleTheme()"><span class="theme-switch-knob"></span></button>
+      </div>
+      <p class="info-version">Newsletter Digest v2.12 · 2026-08-15</p>
     </div>
   </div>
 </div>
@@ -469,7 +498,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderTabs(_cfg);
   loadDigestList();
   loadDigest('latest');
+  initThemeToggle();
 });
+
+// ─── Dark-/Hell-Modus-Umschalter ────────────────────────────────────────────
+function getStoredTheme() {
+  try { return localStorage.getItem('nl_theme'); } catch (e) { return null; }
+}
+function systemPrefersDark() {
+  return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+function applyTheme(theme) {
+  if (theme === 'light' || theme === 'dark') document.documentElement.setAttribute('data-theme', theme);
+  else document.documentElement.removeAttribute('data-theme');
+}
+function toggleTheme() {
+  const btn = document.getElementById('theme-toggle');
+  const next = btn.getAttribute('aria-checked') === 'true' ? 'light' : 'dark';
+  btn.setAttribute('aria-checked', next === 'dark' ? 'true' : 'false');
+  try { localStorage.setItem('nl_theme', next); } catch (e) {}
+  applyTheme(next);
+}
+function initThemeToggle() {
+  const btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  const effective = getStoredTheme() || (systemPrefersDark() ? 'dark' : 'light');
+  btn.setAttribute('aria-checked', effective === 'dark' ? 'true' : 'false');
+}
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/newsletter/sw.js', {scope: '/newsletter/'})
