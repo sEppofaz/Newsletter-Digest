@@ -288,6 +288,54 @@ def call_claude(cat_cfg: dict, mails: list, model: str | None = None) -> tuple[s
         return None, None
 
 
+# ─── Frage-Feature (Rückfragen zu einem Digest) ─────────────────────────────
+
+ASK_SYSTEM_PROMPT = (
+    "Du bist ein Assistent für Rückfragen zu einem Newsletter-Digest vom {date}. "
+    "Hier ist der vollständige Inhalt dieses Digests:\n\n{content}\n\n"
+    "Beantworte ausschließlich Fragen, die sich auf die im Digest genannten Themen "
+    "und Artikel beziehen. Wird ein Thema im Digest nur kurz angerissen, darfst und "
+    "sollst du es mit deinem eigenen Wissen vertiefen und mehr Hintergrund liefern "
+    "(nicht nur den Digest-Text wiederholen). Bei Fragen zu Themen, die im Digest "
+    "nicht vorkommen, freundlich darauf hinweisen, dass du nur zu den Inhalten "
+    "dieses Digests antwortest. Antworte auf Deutsch, prägnant (max. ca. 250 Wörter), "
+    "in Fließtext bzw. kurzen Absätzen; **fett** für einzelne Begriffe ist erlaubt, "
+    "keine Überschriften."
+)
+
+
+def call_claude_ask(system: str, question: str) -> tuple[str | None, dict | None]:
+    payload = {
+        "model": CLAUDE_MODEL,
+        "max_tokens": 1200,
+        "system": system,
+        "messages": [{"role": "user", "content": question}],
+    }
+    try:
+        resp = http_client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json=payload,
+            timeout=60,
+        )
+        resp.raise_for_status()
+        resp_json = resp.json()
+        usage = resp_json.get("usage", {})
+        usage_info = {
+            "model": CLAUDE_MODEL,
+            "input_tokens": usage.get("input_tokens", 0),
+            "output_tokens": usage.get("output_tokens", 0),
+        }
+        return resp_json["content"][0]["text"], usage_info
+    except Exception as e:
+        log.error("Claude-API-Fehler (ask): %s", e)
+        return None, None
+
+
 # ─── Icon-Generierung ────────────────────────────────────────────────────────
 
 _ICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 36 36">
@@ -490,6 +538,59 @@ def api_digest_by_date(date_str: str):
     if not fname.exists():
         return jsonify({"error": "Nicht gefunden"}), 404
     return jsonify(json.loads(fname.read_text()))
+
+
+@app.route("/api/ask", methods=["POST"])
+def api_ask():
+    data = request.get_json(silent=True) or {}
+    question = (data.get("question") or "").strip()
+    date_str = (data.get("date") or "").strip()
+
+    if not question:
+        return jsonify({"error": "Keine Frage übermittelt."}), 400
+    if len(question) > 2000:
+        return jsonify({"error": "Frage zu lang (max. 2000 Zeichen)."}), 400
+
+    today_costs = costs.load_costs_summary().get("today", {})
+    if today_costs.get("cost_usd", 0.0) >= costs.DAILY_HARD_KILL_USD:
+        return jsonify({"error": "Tages-Kostenlimit für heute erreicht. Bitte morgen erneut versuchen."}), 429
+
+    if not date_str or date_str == "latest":
+        digests = sorted(DATA_DIR.glob("digest_*.json"), reverse=True)
+        if not digests:
+            return jsonify({"error": "Noch kein Digest vorhanden."}), 404
+        fname = digests[0]
+    else:
+        if not date_str.replace("-", "").isdigit() or len(date_str) != 10:
+            abort(400)
+        fname = DATA_DIR / f"digest_{date_str}.json"
+        if not fname.exists():
+            return jsonify({"error": "Digest für dieses Datum nicht gefunden."}), 404
+
+    digest = json.loads(fname.read_text())
+    cats = digest.get("categories", {})
+    if not cats:
+        return jsonify({"error": "Dieser Digest hat keine Inhalte."}), 404
+
+    cfg = load_config()
+    cat_map = {c["id"]: c for c in cfg.get("categories", DEFAULT_CATEGORIES)}
+    content = "\n\n".join(
+        f"## {cat_map.get(cid, {}).get('name', cid)}\n{text}" for cid, text in cats.items()
+    )
+    system = ASK_SYSTEM_PROMPT.format(date=digest.get("date", fname.stem.replace("digest_", "")), content=content)
+
+    answer, usage_info = call_claude_ask(system, question)
+    if answer is None:
+        return jsonify({"error": "Claude-API aktuell nicht erreichbar. Bitte später erneut versuchen."}), 502
+
+    if usage_info:
+        result = costs.record_call(
+            usage_info["model"], usage_info["input_tokens"], usage_info["output_tokens"], context="ask",
+        )
+        if result["warn_1usd"]:
+            telegram_alert(f"1$ Tagesverbrauch erreicht (heute: ${result['day_total_usd']:.2f}). Verarbeitung läuft normal weiter.")
+
+    return jsonify({"answer": answer})
 
 
 @app.route("/api/podcast/<date_str>", methods=["POST"])

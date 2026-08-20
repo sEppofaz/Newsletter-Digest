@@ -1,4 +1,4 @@
-const CACHE = 'newsletter-v1';
+const CACHE = 'newsletter-v2';
 
 const SHELL = [
   '/newsletter/',
