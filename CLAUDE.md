@@ -93,7 +93,16 @@ ssh root@89.167.104.145
 cd /opt/newsletter-digest
 venv/bin/python3 fetch_mails.py --catchup-days 14
 ```
-Durchsucht `[Google Mail]/Alle Nachrichten` (nicht INBOX, da ältere Mails ggf. schon archiviert sind) rein lesend, N Tage zurück, umgeht `should_run()`. Schreibt normal `digest_<heute>.json` über denselben `process_mails()`-Pfad inkl. Kosten-Hard-Kill-Schutz. Vor Nutzung sicherstellen, dass Kosten-Tracking aktiv ist (siehe unten) – bei vielen Tagen potenziell teurer als ein normaler Lauf.
+Durchsucht den `\All`-Ordner (sprachunabhängig via `find_all_mail_folder()`, siehe Pitfalls) statt INBOX, da ältere Mails ggf. schon archiviert sind, rein lesend, N Tage zurück, umgeht `should_run()`. Schreibt normal `digest_<heute>.json` über denselben `process_mails()`-Pfad inkl. Kosten-Hard-Kill-Schutz. Vor Nutzung sicherstellen, dass Kosten-Tracking aktiv ist (siehe unten) – bei vielen Tagen potenziell teurer als ein normaler Lauf.
+
+## Backlog-Archivierung ohne Digest (seit 2026-09-01)
+```bash
+venv/bin/python3 fetch_mails.py --archive-known-senders-days 14
+```
+Für den Fall, dass ein Ausfall (z.B. IMAP-Login tot) einen Rückstau an ungelesenen Newsletter-Mails hinterlässt, den man **nicht** nachträglich als Digest verarbeiten will (Josef-Wunsch 2026-09-01: alte News sind uninteressant). Markiert nur Mails **bekannter** Absender (`config.json` → `senders`) als gelesen und archiviert sie (Gmail-Archivieren = INBOX-Label entfernen, Mail bleibt für immer in „All Mail", jederzeit rückgängig). Unbekannte Absender werden nicht angefasst – kein Claude-Call, keine Kosten, kein Digest. UID-basiert (siehe Pitfall Bulk-IMAP-Operationen).
+
+## Newsletter-Re-Bestätigungs-Alert (seit 2026-09-01)
+`check_subscription_confirmation()` läuft bei jeder verarbeiteten Mail (regulärer Fetch + Nachhol-Modus) mit, unabhängig von Kategorisierung. Erkennt Double-Opt-In-/Re-Confirm-Anfragen per Keyword-Liste (`CONFIRM_SUBSCRIPTION_KEYWORDS`, de/en) in Betreff+Body-Anfang und schickt bei Treffer sofort einen Telegram-Alert mit Absender+Betreff. **Bewusst nicht automatisiert bestätigt** – Josef-Entscheidung 2026-09-01: Double-Opt-In existiert genau dafür, dass ein Mensch aktiv zustimmt, ein Auto-Klick auf Bestätigungslinks würde das aushebeln und bei Fehlklick/abgelaufenem Token unkontrollierbare Nebenwirkungen haben. Keyword-Liste ist eine Heuristik – falls ein Fall durchrutscht, Liste in `fetch_mails.py` ergänzen.
 
 ## Kosten-Tracking (seit 2026-07-24)
 `costs.py` trackt jeden Claude-Call (Kategorie-Zusammenfassung in `app.py` + Auto-Kategorisierung in `fetch_mails.py`) in `claude_costs.json` (gitignored, USD, pro Call + Tag/Woche/Monat/Jahr). Session = ein Kalendertag.

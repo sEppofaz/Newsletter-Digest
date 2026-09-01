@@ -203,6 +203,29 @@ def extract_body(msg) -> str:
     return body[:8000] if body else ""
 
 
+CONFIRM_SUBSCRIPTION_KEYWORDS = [
+    "bestätigen sie ihr abo", "bestätige dein abo", "abo bestätigen",
+    "weiterhin beziehen", "möchten sie weiterhin", "willst du weiterhin",
+    "confirm your subscription", "re-confirm your subscription",
+    "verify your subscription", "still want to receive",
+    "double opt-in", "opt-in bestätigen", "please confirm you",
+]
+
+
+def check_subscription_confirmation(from_addr: str, subject: str, body: str):
+    """Erkennt Mails, die eine manuelle Bestaetigung des Abos verlangen
+    (Double-Opt-In/Re-Confirm), und alarmiert per Telegram - bewusst NICHT
+    automatisiert bestaetigt (Josef-Wunsch 2026-09-01: Zustimmung bleibt
+    ein bewusster menschlicher Schritt, kein Auto-Klick auf Bestaetigungslinks)."""
+    haystack = (subject + " " + body[:1000]).lower()
+    if any(kw in haystack for kw in CONFIRM_SUBSCRIPTION_KEYWORDS):
+        log.info("Abo-Bestaetigung erkannt: %s – %s", from_addr, subject[:60])
+        notify_telegram(
+            f"📬 Newsletter-Abo-Bestätigung nötig!\nVon: {from_addr}\nBetreff: {subject}\n"
+            f"Bitte manuell im Postfach prüfen und bestätigen, sonst droht Abo-Ende."
+        )
+
+
 def find_all_mail_folder(imap: imaplib.IMAP4_SSL) -> str:
     """Findet den 'Alle Nachrichten'/'All Mail'-Ordner sprachunabhaengig ueber das
     IMAP-Special-Use-Flag \\All, statt einen lokalisierten Namen zu hardcoden
@@ -250,6 +273,7 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
 
             subject = decode_str(msg.get("Subject", "(kein Betreff)"))
             body = extract_body(msg)
+            check_subscription_confirmation(from_addr, subject, body)
 
             category = sender_mapping.get(from_addr)
             if not category:
@@ -336,6 +360,7 @@ def fetch_from_all_mail(days: int, sender_mapping: dict, valid_categories: set[s
 
             subject = decode_str(msg.get("Subject", "(kein Betreff)"))
             body = extract_body(msg)
+            check_subscription_confirmation(from_addr, subject, body)
 
             category = sender_mapping.get(from_addr)
             if not category:
@@ -372,6 +397,63 @@ def fetch_from_all_mail(days: int, sender_mapping: dict, valid_categories: set[s
     return mails
 
 
+def archive_known_senders(days: int, sender_mapping: dict) -> int:
+    """Einmaliger Aufraeum-Lauf: markiert Mails bekannter Newsletter-Absender
+    (aus config.json/senders) als gelesen und archiviert sie, OHNE Digest zu
+    erstellen und OHNE Claude-Call (kein Kosten-Impact). Unbekannte Absender
+    werden nicht angefasst, um kein normales Postfach-Mail zu archivieren.
+    UID-basiert statt Sequenznummern (siehe Pitfall Bulk-IMAP-Operationen,
+    2026-07-24 - Sequenznummer-Drift bei vielen Mails in einer Session)."""
+    archived = 0
+    try:
+        log.info("Verbinde mit Gmail IMAP (Backlog-Archivierung bekannter Absender)…")
+        imap = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT)
+        imap.login(GMAIL_USER, GMAIL_PASSWORD)
+        all_mail_folder = find_all_mail_folder(imap)
+        imap.select("INBOX")
+
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%d-%b-%Y")
+        typ, msg_ids = imap.uid("SEARCH", None, f'(SINCE "{since}")')
+        uids = msg_ids[0].split() if typ == "OK" and msg_ids[0] else []
+        log.info("%d Mails seit %s im Postfach, pruefe auf bekannte Absender…", len(uids), since)
+
+        for uid in uids:
+            typ, data = imap.uid("FETCH", uid, "(BODY.PEEK[HEADER.FIELDS (FROM)])")
+            if typ != "OK" or not data or not data[0]:
+                continue
+            header = email.message_from_bytes(data[0][1])
+            from_raw = decode_str(header.get("From", ""))
+            if "<" in from_raw and ">" in from_raw:
+                from_addr = from_raw.split("<")[1].split(">")[0].strip().lower()
+            else:
+                from_addr = from_raw.strip().lower()
+
+            if from_addr not in sender_mapping:
+                continue
+
+            try:
+                imap.uid("STORE", uid, "+FLAGS", "\\Seen")
+                imap.uid("COPY", uid, f'"{all_mail_folder}"')
+                imap.uid("STORE", uid, "+FLAGS", "\\Deleted")
+                archived += 1
+                log.info("Archiviert (bekannter Absender): %s", from_addr)
+            except Exception as e:
+                log.warning("Fehler beim Archivieren von UID %s (%s): %s", uid, from_addr, e)
+
+        if archived:
+            imap.expunge()
+        imap.logout()
+        log.info("Backlog-Archivierung abgeschlossen: %d von %d Mails (bekannte Absender).", archived, len(uids))
+    except imaplib.IMAP4.error as e:
+        log.error("IMAP-Fehler (Backlog-Archivierung): %s", e)
+        notify_telegram(f"IMAP-Fehler bei Backlog-Archivierung: {e}")
+    except Exception as e:
+        log.error("Unerwarteter Fehler (Backlog-Archivierung): %s", e)
+        notify_telegram(f"Unerwarteter Fehler bei Backlog-Archivierung: {e}")
+
+    return archived
+
+
 def process_mails(mails: list, date_str: str) -> bool:
     try:
         r = requests.post(
@@ -406,9 +488,25 @@ def main():
         help="Einmaliger Nachhol-Lauf: durchsucht 'Alle Nachrichten' (rein lesend) statt INBOX, "
              "N Tage zurück, umgeht should_run()",
     )
+    parser.add_argument(
+        "--archive-known-senders-days", type=int, default=None,
+        help="Einmaliger Aufraeum-Lauf: markiert INBOX-Mails bekannter Newsletter-Absender "
+             "(config.json/senders) als gelesen und archiviert sie, N Tage zurueck. "
+             "Kein Digest, kein Claude-Call, keine Kosten. Unbekannte Absender bleiben unberuehrt.",
+    )
     args = parser.parse_args()
 
     log.info("=== Newsletter Fetch gestartet ===")
+
+    if args.archive_known_senders_days is not None:
+        if not GMAIL_PASSWORD:
+            log.error("GMAIL_APP_PASSWORD nicht gesetzt")
+            notify_telegram("GMAIL_APP_PASSWORD fehlt in .env")
+            sys.exit(1)
+        cfg = get_config()
+        sender_mapping = cfg.get("senders", {})
+        archive_known_senders(args.archive_known_senders_days, sender_mapping)
+        sys.exit(0)
 
     if args.catchup_days is None and not should_run():
         sys.exit(0)
