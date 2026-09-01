@@ -145,6 +145,17 @@ Button „Podcast erstellen" pro Digest-Tag erzeugt einen Zwei-Sprecher-Podcast:
 - Server: `dropbox` + `pydub` im venv installiert, `ffmpeg` war schon vorhanden (`/usr/bin/ffmpeg`)
 - Verifiziert mit echtem Test-Digest (2026-08-11): Skript-Qualität gut (natürlicher Dialog, keine reine Stichpunkt-Vorlesung), Audio 793KB/~99s MP3 abspielbar, Kosten korrekt getrackt ($0,047 TTS + $0,016 Skript). Erster Testlauf schlug mit 429 fehl, da der neue OpenAI-Account noch keine Credits hatte – nach Aufladung erfolgreich.
 
+## Frage-Feature (seit 2026-08-20, v2.13)
+Statischer Tab „Frage" (letzter Tab, unabhängig von den dynamischen Kategorie-Tabs – in `renderTabs()` nach den Kategorien angehängt, damit er bei jeder Config-Änderung immer am Ende bleibt) für Rückfragen zum gerade angezeigten Digest.
+- `POST /api/ask` (`{question, date}`) – lädt `digest_<date>.json` (oder `latest`), baut aus allen Kategorien-Texten den Kontext, ruft `call_claude_ask()` (eigene schlanke Funktion, kein Retry/Fallback wie `call_claude()` – bei Fehler einfach 502 an den Nutzer, kein Scheduler-Kontext der einen Retry rechtfertigen würde).
+- **Bewusst inhaltlich eingegrenzt** (Josef-Wunsch): Systemprompt (`ASK_SYSTEM_PROMPT`) weist an, nur zu Digest-Themen zu antworten, digest-fremde Fragen freundlich abzulehnen – aber bei nur kurz angerissenen Digest-Themen ausdrücklich mit eigenem Wissen zu vertiefen (kein reines Wiederholen des Digest-Texts).
+- Kein Dropbox-Verlauf wie bei OrgKompass (nicht angefragt) – Antwort ist flüchtig, wird bei jedem `loadDigest()` (Archiv-Wechsel, Pull-to-Refresh) zurückgesetzt.
+- Kosten: teilt sich das bestehende $1-Warn/$5-Hard-Kill-Tagesbudget (`costs.py`) mit Digest-Erstellung + Podcast, `context="ask"` in `claude_costs.json`.
+- **Sicherheit (bewusst akzeptiertes Risiko):** `/newsletter/` hat wie der Rest der App keine Login-Sperre – `/api/ask` ist öffentlich erreichbar, abgesichert nur über Fragen-Längenlimit (2000 Zeichen) + das geteilte Tages-Hard-Kill. Kein Bearer-Token möglich, da der Endpoint vom Browser aufgerufen wird.
+- Frontend: `#section-ask` trägt zwar die Klasse `.digest-section` (damit `switchTab()` generisch funktioniert), wird aber explizit aus den beiden Stellen ausgenommen, die sonst pauschal über `.digest-section` iterieren (`showLoading()` leert sie sonst bei jedem Digest-Load, `renderDigest()` würde sonst „Keine Inhalte für Frage" reinschreiben) – bei künftigen Änderungen an diesen beiden Funktionen dran denken, `section-ask` weiterhin auszuschließen.
+- Eigener leichtgewichtiger Renderer `renderAskAnswer()`/`mdInline()` fürs Antwort-Rendering (Fließtext/Bullets/**fett**) – bewusst NICHT `parseDigestText()` wiederverwendet, da dessen Parser strikt auf das `**Titel** – Text`-Bullet-Format der Digest-Zusammenfassungen ausgelegt ist und bei freien Fließtext-Antworten meist „Inhalt konnte nicht geparst werden" ausgegeben hätte.
+- SW-Cache `newsletter-v1` → `newsletter-v2` (index.html geändert).
+
 ## Aktueller Stand
 [x] GitHub-Repo angelegt (sEppofaz/Newsletter-Digest)
 [x] Server: /opt/newsletter-digest/ angelegt
@@ -163,3 +174,4 @@ Button „Podcast erstellen" pro Digest-Tag erzeugt einen Zwei-Sprecher-Podcast:
 [x] PWA auf Homescreen installiert
 [x] Horizontales Wischen zwischen Rubriken (v2.8/v2.9)
 [x] Podcast-Feature: Zwei-Sprecher-TTS, Dropbox-Ablage (v2.9)
+[x] Frage-Feature: Rückfragen zum aktuellen Digest, inhaltlich eingegrenzt (v2.13)
