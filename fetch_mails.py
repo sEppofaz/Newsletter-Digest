@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, imaplib, email, sys, json, logging
+import argparse, imaplib, email, sys, json, logging, re
 from email.header import decode_header
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -203,6 +203,21 @@ def extract_body(msg) -> str:
     return body[:8000] if body else ""
 
 
+def find_all_mail_folder(imap: imaplib.IMAP4_SSL) -> str:
+    """Findet den 'Alle Nachrichten'/'All Mail'-Ordner sprachunabhaengig ueber das
+    IMAP-Special-Use-Flag \\All, statt einen lokalisierten Namen zu hardcoden
+    (Gmail-Kontosprache kann sich aendern, siehe Pitfall 2026-09-01)."""
+    typ, folders = imap.list()
+    if typ == "OK":
+        for entry in folders:
+            line = entry.decode("utf-8", errors="replace") if isinstance(entry, bytes) else entry
+            if "\\All" in line:
+                m = re.search(r'"([^"]+)"$', line)
+                if m:
+                    return m.group(1)
+    return "[Google Mail]/Alle Nachrichten"
+
+
 def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: str) -> list:
     mails = []
     processed_ids = []
@@ -211,6 +226,7 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
         log.info("Verbinde mit Gmail IMAP…")
         imap = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT)
         imap.login(GMAIL_USER, GMAIL_PASSWORD)
+        all_mail_folder = find_all_mail_folder(imap)
         imap.select("INBOX")
 
         since = (datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)).strftime("%d-%b-%Y")
@@ -267,7 +283,7 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
             for mid in processed_ids:
                 try:
                     imap.store(mid, "+FLAGS", "\\Seen")
-                    imap.copy(mid, '"[Google Mail]/Alle Nachrichten"')
+                    imap.copy(mid, f'"{all_mail_folder}"')
                     imap.store(mid, "+FLAGS", "\\Deleted")
                 except Exception as e:
                     log.warning("Fehler beim Archivieren von Mail %s: %s", mid, e)
@@ -294,9 +310,10 @@ def fetch_from_all_mail(days: int, sender_mapping: dict, valid_categories: set[s
         log.info("Verbinde mit Gmail IMAP (Nachhol-Modus, Alle Nachrichten)…")
         imap = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT)
         imap.login(GMAIL_USER, GMAIL_PASSWORD)
-        typ, _ = imap.select('"[Google Mail]/Alle Nachrichten"', readonly=True)
+        all_mail_folder = find_all_mail_folder(imap)
+        typ, _ = imap.select(f'"{all_mail_folder}"', readonly=True)
         if typ != "OK":
-            raise imaplib.IMAP4.error(f"SELECT auf 'Alle Nachrichten' fehlgeschlagen: {typ}")
+            raise imaplib.IMAP4.error(f"SELECT auf '{all_mail_folder}' fehlgeschlagen: {typ}")
 
         since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%d-%b-%Y")
         _, msg_ids = imap.search(None, f'(SINCE "{since}")')
