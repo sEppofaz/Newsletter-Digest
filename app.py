@@ -67,11 +67,13 @@ def _send_telegram_raw(full_text: str):
         return
     try:
         for part in _split_telegram_message(full_text):
-            http_client.post(
+            r = http_client.post(
                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
                 json={"chat_id": TELEGRAM_CHAT_ID, "text": part},
                 timeout=10,
             )
+            if not r.ok:
+                log.error("Telegram-Versand fehlgeschlagen: HTTP %d – %s", r.status_code, r.text[:200])
     except Exception as e:
         log.error("Telegram-Versand fehlgeschlagen: %s", e)
 

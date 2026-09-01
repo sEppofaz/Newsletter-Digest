@@ -49,17 +49,20 @@ def _split_telegram_message(text: str, limit: int = 4096) -> list[str]:
 
 def notify_telegram(msg: str):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        log.warning("Telegram-Alert nicht gesendet: TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID fehlt in .env")
         return
     full_text = f"⚠️ [Newsletter-Fetch]\n{msg}"
     try:
         for part in _split_telegram_message(full_text):
-            requests.post(
+            r = requests.post(
                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
                 json={"chat_id": TELEGRAM_CHAT_ID, "text": part},
                 timeout=10,
             )
-    except Exception:
-        pass
+            if not r.ok:
+                log.warning("Telegram-Alert fehlgeschlagen: HTTP %d – %s", r.status_code, r.text[:200])
+    except Exception as e:
+        log.warning("Telegram-Alert fehlgeschlagen (Exception): %s", e)
 
 
 def should_run() -> bool:
