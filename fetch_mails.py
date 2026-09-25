@@ -229,6 +229,23 @@ def check_subscription_confirmation(from_addr: str, subject: str, body: str):
         )
 
 
+def raw_from_fetch(data):
+    """Sucht in einer IMAP-FETCH-Response den Teil mit der Rohmail.
+
+    imaplib liefert eine Liste, die neben dem erwarteten Tupel
+    (b'12 (RFC822 {3123}', b'<rohe Mail>') auch reine Bytes-Elemente enthalten
+    kann - etwa unsolicited Untagged-Responses (`* 12 FETCH (FLAGS (\\Seen))`),
+    die Gmail mitten in den Lauf einstreut, wenn parallel Flags geaendert werden
+    (Mail am Handy geoeffnet, Filter greift). Ein blindes data[0][1] liefert dann
+    ein int (Byte-Indexing!) statt bytes -> "'int' object has no attribute
+    'decode'" in message_from_bytes. Im QG-Feedback-Bot ist genau das zweimal
+    live aufgeschlagen (2026-09-17/19), hier war es bis dahin latent."""
+    for part in data or []:
+        if isinstance(part, tuple) and len(part) >= 2 and isinstance(part[1], (bytes, bytearray)):
+            return bytes(part[1])
+    return None
+
+
 def find_all_mail_folder(imap: imaplib.IMAP4_SSL) -> str:
     """Findet den 'Alle Nachrichten'/'All Mail'-Ordner sprachunabhaengig ueber das
     IMAP-Special-Use-Flag \\All, statt einen lokalisierten Namen zu hardcoden
@@ -256,16 +273,24 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
         imap.select("INBOX")
 
         since = (datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)).strftime("%d-%b-%Y")
-        _, msg_ids = imap.search(None, f'(SINCE "{since}")')
+        # UID statt Sequenznummer (gleicher Pitfall wie bei archive_known_backlog,
+        # 2026-07-24): wird waehrend des Laufs eine INBOX-Mail expunged, rutschen
+        # alle Sequenznummern nach unten - die Archivierungs-Schleife unten wuerde
+        # dann \Deleted auf der falschen Mail setzen. UIDs sind stabil.
+        typ, msg_ids = imap.uid("SEARCH", None, f'(SINCE "{since}")')
 
-        ids = msg_ids[0].split() if msg_ids[0] else []
-        log.info("%d Mails seit %s gefunden", len(ids), since)
+        uids = msg_ids[0].split() if typ == "OK" and msg_ids[0] else []
+        log.info("%d Mails seit %s gefunden", len(uids), since)
 
-        for mid in ids:
-            _, data = imap.fetch(mid, "(RFC822)")
-            if not data or not data[0]:
+        for uid in uids:
+            typ, data = imap.uid("FETCH", uid, "(RFC822)")
+            if typ != "OK":
+                log.warning("FETCH fehlgeschlagen fuer UID %s: %s", uid, typ)
                 continue
-            raw = data[0][1]
+            raw = raw_from_fetch(data)
+            if raw is None:
+                log.warning("FETCH-Response ohne Rohmail fuer UID %s uebersprungen", uid)
+                continue
             msg = email.message_from_bytes(raw)
 
             from_raw = decode_str(msg.get("From", ""))
@@ -302,18 +327,18 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
                 "body":     body,
                 "category": category,
             })
-            processed_ids.append(mid)
+            processed_ids.append(uid)
             log.info("Mail übernommen: [%s] %s", category, subject[:60])
 
         if processed_ids:
             log.info("%d Mails werden als gelesen markiert und archiviert…", len(processed_ids))
-            for mid in processed_ids:
+            for uid in processed_ids:
                 try:
-                    imap.store(mid, "+FLAGS", "\\Seen")
-                    imap.copy(mid, f'"{all_mail_folder}"')
-                    imap.store(mid, "+FLAGS", "\\Deleted")
+                    imap.uid("STORE", uid, "+FLAGS", "\\Seen")
+                    imap.uid("COPY", uid, f'"{all_mail_folder}"')
+                    imap.uid("STORE", uid, "+FLAGS", "\\Deleted")
                 except Exception as e:
-                    log.warning("Fehler beim Archivieren von Mail %s: %s", mid, e)
+                    log.warning("Fehler beim Archivieren von UID %s: %s", uid, e)
             imap.expunge()
             log.info("Archivierung abgeschlossen (%d Mails).", len(processed_ids))
 
@@ -322,7 +347,7 @@ def fetch_mails(sender_mapping: dict, valid_categories: set[str], cat_prompt: st
         log.error("IMAP-Fehler: %s", e)
         notify_telegram(f"IMAP-Fehler beim Mail-Abruf: {e}")
     except Exception as e:
-        log.error("Unerwarteter Fehler beim Mail-Abruf: %s", e)
+        log.exception("Unerwarteter Fehler beim Mail-Abruf: %s", e)
         notify_telegram(f"Unerwarteter Fehler beim Mail-Abruf: {e}")
 
     return mails
@@ -343,16 +368,20 @@ def fetch_from_all_mail(days: int, sender_mapping: dict, valid_categories: set[s
             raise imaplib.IMAP4.error(f"SELECT auf '{all_mail_folder}' fehlgeschlagen: {typ}")
 
         since = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%d-%b-%Y")
-        _, msg_ids = imap.search(None, f'(SINCE "{since}")')
+        typ, msg_ids = imap.uid("SEARCH", None, f'(SINCE "{since}")')
 
-        ids = msg_ids[0].split() if msg_ids[0] else []
-        log.info("%d Mails seit %s in 'Alle Nachrichten' gefunden", len(ids), since)
+        uids = msg_ids[0].split() if typ == "OK" and msg_ids[0] else []
+        log.info("%d Mails seit %s in 'Alle Nachrichten' gefunden", len(uids), since)
 
-        for mid in ids:
-            _, data = imap.fetch(mid, "(RFC822)")
-            if not data or not data[0]:
+        for uid in uids:
+            typ, data = imap.uid("FETCH", uid, "(RFC822)")
+            if typ != "OK":
+                log.warning("FETCH fehlgeschlagen fuer UID %s: %s", uid, typ)
                 continue
-            raw = data[0][1]
+            raw = raw_from_fetch(data)
+            if raw is None:
+                log.warning("FETCH-Response ohne Rohmail fuer UID %s uebersprungen", uid)
+                continue
             msg = email.message_from_bytes(raw)
 
             from_raw = decode_str(msg.get("From", ""))
@@ -394,7 +423,7 @@ def fetch_from_all_mail(days: int, sender_mapping: dict, valid_categories: set[s
         log.error("IMAP-Fehler (Nachhol-Modus): %s", e)
         notify_telegram(f"IMAP-Fehler beim Nachhol-Lauf: {e}")
     except Exception as e:
-        log.error("Unerwarteter Fehler (Nachhol-Modus): %s", e)
+        log.exception("Unerwarteter Fehler (Nachhol-Modus): %s", e)
         notify_telegram(f"Unerwarteter Fehler beim Nachhol-Lauf: {e}")
 
     return mails
@@ -422,9 +451,13 @@ def archive_known_senders(days: int, sender_mapping: dict) -> int:
 
         for uid in uids:
             typ, data = imap.uid("FETCH", uid, "(BODY.PEEK[HEADER.FIELDS (FROM)])")
-            if typ != "OK" or not data or not data[0]:
+            if typ != "OK":
                 continue
-            header = email.message_from_bytes(data[0][1])
+            raw_header = raw_from_fetch(data)
+            if raw_header is None:
+                log.warning("FETCH-Response ohne Header fuer UID %s uebersprungen", uid)
+                continue
+            header = email.message_from_bytes(raw_header)
             from_raw = decode_str(header.get("From", ""))
             if "<" in from_raw and ">" in from_raw:
                 from_addr = from_raw.split("<")[1].split(">")[0].strip().lower()
@@ -451,7 +484,7 @@ def archive_known_senders(days: int, sender_mapping: dict) -> int:
         log.error("IMAP-Fehler (Backlog-Archivierung): %s", e)
         notify_telegram(f"IMAP-Fehler bei Backlog-Archivierung: {e}")
     except Exception as e:
-        log.error("Unerwarteter Fehler (Backlog-Archivierung): %s", e)
+        log.exception("Unerwarteter Fehler (Backlog-Archivierung): %s", e)
         notify_telegram(f"Unerwarteter Fehler bei Backlog-Archivierung: {e}")
 
     return archived
