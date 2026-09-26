@@ -193,3 +193,12 @@ Statischer Tab „Frage" (letzter Tab, unabhängig von den dynamischen Kategorie
 Der Umschalter steht im Info-Sheet **direkt hinter dem Einleitungsabschnitt**, vor allen weiteren Hilfeeinträgen – verbindliche Vorgabe aus `PKA/BKM/PWA-Standards.md` (vorher stand er unten neben Version/Schließen). Beim Umbauen des Info-Sheets die Position beibehalten.
 
 Zusätzlich beim selben Deploy: Die Versionszeile im Info-Sheet hatte den BKM-Pflichtbestandteil „a sEpp-App" nicht – ergänzt (v2.14).
+
+## Rubrikwechsel – Übergang (v2.15, 2026-09-26)
+
+- **Mitziehen während des Wischens:** `#digest-sections` wird per `transform: translateX()` gedämpft mitgezogen (`tanh`-Dämpfung, max. 44px) und blendet dabei leicht aus. Nur bei eindeutig horizontaler Absicht (`|dx| > 12` **und** `|dx| > |dy|·1,5`) – sonst gehört die Geste dem vertikalen Scrollen bzw. dem Pull-to-Refresh, das auf denselben Touch-Events sitzt.
+- **Einblenden:** Der neue Abschnitt kommt per `slide+fade` aus der Wischrichtung (`.enter-left` / `.enter-right`, 240ms). Die Richtung leitet `switchTab(btn, dir)` auch bei **Tab-Klicks** aus dem Tab-Index ab, damit Klick und Wisch gleich aussehen.
+- **Pitfall:** `window.scrollTo({behavior:'smooth'})` beim Wechsel lief gegen die Einblend-Animation (zwei gleichzeitige Bewegungen, wirkte unruhig) – steht jetzt auf hartem `scrollTo(0,0)`.
+- **Pitfall:** Nach einem erfolgreichen Wechsel wird der Drag **ohne** Rückfeder-Animation zurückgesetzt (`resetDrag(false)`), sonst überlagern sich Snap-back und Einblendung.
+- `prefers-reduced-motion: reduce` schaltet beide Animationen ab.
+- **Bekannte Grenze:** Vom „Frage"-Tab aus wird nicht gewischt (`swipeTarget()` liefert `null`, weil `ask` nicht in `_swipeCats` steht) – unverändertes Verhalten seit Einführung des Swipes.
