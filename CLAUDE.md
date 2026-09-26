@@ -201,4 +201,5 @@ Zusätzlich beim selben Deploy: Die Versionszeile im Info-Sheet hatte den BKM-Pf
 - **Pitfall:** `window.scrollTo({behavior:'smooth'})` beim Wechsel lief gegen die Einblend-Animation (zwei gleichzeitige Bewegungen, wirkte unruhig) – steht jetzt auf hartem `scrollTo(0,0)`.
 - **Pitfall:** Nach einem erfolgreichen Wechsel wird der Drag **ohne** Rückfeder-Animation zurückgesetzt (`resetDrag(false)`), sonst überlagern sich Snap-back und Einblendung.
 - `prefers-reduced-motion: reduce` schaltet beide Animationen ab.
+- **Entscheidung inkl. verworfener Alternativen:** `ADR/ADR-007-rubrikwechsel-drag-feedback-statt-karussell.md` (warum kein echtes Karussell).
 - **Bekannte Grenze:** Vom „Frage"-Tab aus wird nicht gewischt (`swipeTarget()` liefert `null`, weil `ask` nicht in `_swipeCats` steht) – unverändertes Verhalten seit Einführung des Swipes.
