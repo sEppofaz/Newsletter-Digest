@@ -187,3 +187,9 @@ Statischer Tab „Frage" (letzter Tab, unabhängig von den dynamischen Kategorie
 [x] Horizontales Wischen zwischen Rubriken (v2.8/v2.9)
 [x] Podcast-Feature: Zwei-Sprecher-TTS, Dropbox-Ablage (v2.9)
 [x] Frage-Feature: Rückfragen zum aktuellen Digest, inhaltlich eingegrenzt (v2.13)
+
+## Dark-/Hell-Modus-Umschalter – Position (2026-09-26)
+
+Der Umschalter steht im Info-Sheet **direkt hinter dem Einleitungsabschnitt**, vor allen weiteren Hilfeeinträgen – verbindliche Vorgabe aus `PKA/BKM/PWA-Standards.md` (vorher stand er unten neben Version/Schließen). Beim Umbauen des Info-Sheets die Position beibehalten.
+
+Zusätzlich beim selben Deploy: Die Versionszeile im Info-Sheet hatte den BKM-Pflichtbestandteil „a sEpp-App" nicht – ergänzt (v2.14).
