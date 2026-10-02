@@ -29,7 +29,7 @@ ssh root@89.167.104.145 "git -C /opt/newsletter-digest pull && chown webhook:web
 - Daten: `/opt/newsletter-digest/data/digests/`
 - Icons: `/opt/newsletter-digest/icons/`
 - Config: `/opt/newsletter-digest/config.json`
-- Env: `/opt/newsletter-digest/.env` (nie ins Repo!)
+- Zugangsdaten: **`/etc/pka/secrets.env`** mit Präfix `NL_` (seit 2026-10-02, ADR-008); die frühere `/opt/newsletter-digest/.env` ist beiseite gelegt (`.env.aus`) und wird nach dem ersten erfolgreichen Timer-Lauf gelöscht
 - Logs: `journalctl -u newsletter-digest -f`
 
 ## Service
@@ -118,7 +118,7 @@ Manueller Umschalter im Info-Sheet ergänzt (überschreibt `prefers-color-scheme
 ## Pitfalls
 - **Gunicorn-Timeout:** `newsletter-digest.service` läuft mit `--timeout 120` (seit 2026-07-24, davor kein Flag = Gunicorn-Default 30s). Claude-Call in `call_claude()` erlaubt `timeout=90` – bei Gunicorn-Timeout < Requests-Timeout killt Gunicorn den Worker mitten in der Anfrage (`WORKER TIMEOUT`/`SIGABRT`) → 500 bei `/api/process`, fetch_mails.py meldet die leere Digest-Seite mit Warning. Bei künftigen Änderungen am `timeout=90` in `app.py` den Gunicorn-Wert in der `.service`-Datei entsprechend nachziehen (Gunicorn-Wert immer > Requests-Timeout)
 - `telegram_alert()`/`notify_telegram()` splitten Nachrichten >4096 Zeichen automatisch (siehe `PKA/BKM/Telegram-Integration.md`)
-- Bearer-Token nie ins Repo – in `/opt/newsletter-digest/.env`
+- Bearer-Token nie ins Repo – `NL_BEARER_TOKEN` in `/etc/pka/secrets.env`
 - Icons-Ordner muss `webhook`-User gehören: `chown webhook:webhook /opt/newsletter-digest/icons`
 - nginx proxy_pass mit trailing slash: `/newsletter/` → `http://127.0.0.1:5006/` (Strip des Präfixes)
 - In index.html API-Calls mit Prefix: `/newsletter/api/...` (Browser-URL, nicht Flask-intern)
@@ -174,7 +174,7 @@ Statischer Tab „Frage" (letzter Tab, unabhängig von den dynamischen Kategorie
 [x] systemd-Service aktiv (newsletter-digest.service, Port 5006)
 [x] systemd-Timer aktiv (newsletter-fetch.timer, stündlich)
 [x] nginx-Location aktiv (/newsletter/)
-[x] .env auf Server gesetzt (ANTHROPIC_API_KEY, CLAUDE_MODEL, BEARER_TOKEN, TELEGRAM_*, GMAIL_*, OPENAI_API_KEY, DROPBOX_*)
+[x] Zugangsdaten gesetzt (seit 2026-10-02 in `secrets.env` als `NL_ANTHROPIC_API_KEY`, `NL_CLAUDE_MODEL`, `NL_BEARER_TOKEN`, `NL_TELEGRAM_*`, `NL_GMAIL_*`, `NL_OPENAI_API_KEY`, `NL_DROPBOX_*`)
 [x] Icon-Berechtigungen gesetzt (chown webhook)
 [x] Gmail IMAP aktiviert + App-Passwort generiert (josef.jf.fischer@gmail.com)
 [x] Erster Test-Digest manuell erstellt und in PWA gerendert
@@ -203,3 +203,12 @@ Zusätzlich beim selben Deploy: Die Versionszeile im Info-Sheet hatte den BKM-Pf
 - `prefers-reduced-motion: reduce` schaltet beide Animationen ab.
 - **Entscheidung inkl. verworfener Alternativen:** `ADR/ADR-007-rubrikwechsel-drag-feedback-statt-karussell.md` (warum kein echtes Karussell).
 - **Bekannte Grenze:** Vom „Frage"-Tab aus wird nicht gewischt (`swipeTarget()` liefert `null`, weil `ask` nicht in `_swipeCats` steht) – unverändertes Verhalten seit Einführung des Swipes.
+
+## Zugangsdaten (seit 2026-10-02, ADR-008)
+
+- Werte stehen **nur** in `/etc/pka/secrets.env`, Präfix **`NL_`** (die Newsletter-Dropbox-App ist eine eigene App – ohne Präfix würden gleichnamige Werte anderer Dienste kollidieren).
+- `envquelle.py` (`EnvQuelle`, getestet mit `python3 tests/test_envquelle.py`): je Name zuerst `NL_<NAME>` aus der Umgebung, dann Übergangs-Fallback `.env`; Variablen **ohne** Präfix werden ignoriert. `app.py`, `podcast.py`, `fetch_mails.py` benutzen es statt `dotenv_values`.
+- `newsletter-digest.service` und `newsletter-fetch.service` laden `EnvironmentFile=/etc/pka/secrets.env` über das Drop-in `/etc/systemd/system/<unit>.service.d/10-secrets.conf` (leeres `EnvironmentFile=` setzt die alte Zeile zurück). Beide Dienste sehen damit **alle** Variablen der Datei, nicht nur die eigenen.
+- **Neue Werte** für dieses Projekt: in `secrets.env` als `NL_<NAME>='wert'` (Einzelanführungszeichen) eintragen – Josef selbst, Claude liest und schreibt die Datei nicht – und `systemctl restart newsletter-digest`.
+- **Rückgängig:** `.env.aus` zurück nach `.env`, Drop-ins löschen, `systemctl daemon-reload`, Restart.
+- Überwachung: `newsletter-fetch.timer` (stündlich, systemd) ist vom Cron-Wächter **nicht** erfasst.
