@@ -3,12 +3,12 @@ import argparse, imaplib, email, sys, json, logging, re
 from email.header import decode_header
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from dotenv import dotenv_values
+from envquelle import EnvQuelle
 import requests
 
 import costs
 
-_env = dotenv_values(Path(__file__).parent / ".env")
+_env = EnvQuelle(Path(__file__).parent / ".env")
 
 logging.basicConfig(
     level=logging.INFO,

@@ -3,12 +3,12 @@ from io import BytesIO
 from pathlib import Path
 
 import requests
-from dotenv import dotenv_values
+from envquelle import EnvQuelle
 
 import costs
 
 BASE = Path(__file__).parent
-_env = dotenv_values(BASE / ".env")
+_env = EnvQuelle(BASE / ".env")
 
 ANTHROPIC_API_KEY = _env.get("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = _env.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")

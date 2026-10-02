@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, jsonify, request, send_file, abort, Response
-from dotenv import dotenv_values
+from envquelle import EnvQuelle
 import requests as http_client
 
 import costs
@@ -23,7 +23,7 @@ ICONS_DIR.mkdir(parents=True, exist_ok=True)
 
 _podcast_lock = threading.Lock()
 
-_env = dotenv_values(BASE / ".env")
+_env = EnvQuelle(BASE / ".env")
 BEARER_TOKEN       = _env.get("BEARER_TOKEN", "")
 ANTHROPIC_API_KEY  = _env.get("ANTHROPIC_API_KEY", "")
 TELEGRAM_BOT_TOKEN = _env.get("TELEGRAM_BOT_TOKEN", "")
